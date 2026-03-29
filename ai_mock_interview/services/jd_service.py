@@ -4,328 +4,277 @@ import re
 from services.llm_service import call_llm
 
 
-_EMAIL_RE = re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", re.IGNORECASE)
-_PHONE_RE = re.compile(r"(?:\+?\d{1,3}[\s.-]?)?(?:\(?\d{2,3}\)?[\s.-]?)?\d{3,4}[\s.-]?\d{3,4}")
-
-_SECTION_PATTERNS = {
-    "skills": [r"\bskills\b", r"\btechnical\s+skills\b", r"\bcompetencies\b"],
-    "projects": [r"\bprojects?\b", r"\bproject\s+experience\b"],
-    "experience": [r"\bexperience\b", r"\bwork\s+experience\b", r"\bemployment\b"],
-    "education": [r"\beducation\b", r"\bacademics\b"],
-    "certifications": [r"\bcertifications?\b", r"\bcertificates?\b"],
-    "contact": [r"\bcontact\b", r"\blinkedin\.com\b", r"\bportfolio\b"],
-}
-
-
-def _has_contact_info(text: str) -> bool:
-    return bool(_EMAIL_RE.search(text) or _PHONE_RE.search(text) or re.search(r"linkedin\.com", text, re.IGNORECASE))
-
-
 def is_resume(text: str) -> bool:
     """
-    Heuristic + (fallback) LLM classification to decide whether text resembles a resume.
+    Determine whether text is a resume using LLM with strict validation and regex fallback.
     """
     t = text or ""
-    t_l = t.lower()
-
-    # Count how many major resume sections we can find.
-    sections_hits = 0
-    for key in ["skills", "projects", "experience", "education", "certifications"]:
-        if any(re.search(pat, t_l, re.IGNORECASE) for pat in _SECTION_PATTERNS[key]):
-            sections_hits += 1
-
-    contact_hit = _has_contact_info(t)
-
-    # Strong heuristic signal.
-    if sections_hits >= 3:
-        return True
-    if sections_hits >= 2 and contact_hit:
-        return True
-
-    # Fallback: ask the LLM to decide.
+    print(f"DEBUG: Using LLM for resume validation")
+    
+    # If text is very short, it's probably not a resume
+    if len(t.strip()) < 100:
+        print("DEBUG: Text too short, automatically not a resume")
+        return False
+    
+    # Quick regex check for obvious non-resume content
+    non_resume_patterns = [
+        r'government of india', r'ministry of communications', r'department of posts',
+        r'gds online engagement', r'shortlisted candidates', r'divisional office',
+        r'list \d+', r'circle.*list', r'engagement schedule', r'postal.*service',
+        r'official.*document', r'administrative', r'office.*memorandum'
+    ]
+    
+    text_lower = t.lower()
+    for pattern in non_resume_patterns:
+        if re.search(pattern, text_lower):
+            print(f"DEBUG: Found non-resume pattern: {pattern}")
+            return False
+    
+    # Use LLM for resume validation
     snippet = t[:3000]
     prompt = (
-        "You are a document classifier.\n"
-        "Decide whether the following text is a RESUME/CV.\n"
-        "Resume indicators: Skills, Projects, Experience, Education, Certifications, Contact information (email/phone/LinkedIn).\n"
-        "Answer with exactly YES or NO.\n\n"
-        f"TEXT:\n{snippet}"
+        "You are an expert document classifier. Determine if the following text is a RESUME/CV.\n\n"
+        "Resume characteristics:\n"
+        "- Contains sections like Skills, Experience, Education, Projects, Certifications\n"
+        "- Includes contact information (email, phone, LinkedIn)\n"
+        "- Describes work experience, education background, technical skills\n"
+        "- Written in first person perspective\n"
+        "- Professional format with clear sections\n"
+        "- Lists job responsibilities, achievements, qualifications\n"
+        "- Typically 1-3 pages long\n\n"
+        "Non-resume documents might be:\n"
+        "- Government documents (lists, schedules, notifications)\n"
+        "- Job descriptions (usually written in third person, lists requirements)\n"
+        "- Official letters or memos\n"
+        "- Academic papers (abstracts, citations, references)\n"
+        "- News articles (journalistic style, bylines)\n"
+        "- Administrative documents (lists, schedules, circulars)\n\n"
+        "IMPORTANT: Be very strict. If the document looks like a government list, official notification, or any non-resume document, return NO.\n\n"
+        f"TEXT TO ANALYZE:\n{snippet}\n\n"
+        "Answer with exactly YES if it's clearly a resume, or NO if it's not a resume."
     )
-    resp = call_llm(prompt) or ""
-    resp = resp.strip().upper()
-    return resp.startswith("YES")
+    
+    try:
+        from services.llm_service import call_llm
+        resp = call_llm(prompt) or ""
+        resp = resp.strip().upper()
+        is_resume_result = resp.startswith("YES")
+        print(f"DEBUG: LLM resume validation result: {resp} -> {is_resume_result}")
+        
+        # If LLM fails or returns uncertain, use regex fallback
+        if not resp or resp not in ["YES", "NO"]:
+            print("DEBUG: Uncertain LLM response, using regex fallback")
+            return _is_resume_regex_fallback(t)
+            
+        return is_resume_result
+        
+    except Exception as e:
+        print(f"DEBUG: LLM resume validation error: {e}")
+        # Use regex fallback
+        return _is_resume_regex_fallback(t)
+
+
+def _is_resume_regex_fallback(text: str) -> bool:
+    """
+    Fallback resume validation using regex patterns.
+    """
+    text_lower = text.lower()
+    
+    # Strong indicators of resume
+    resume_indicators = [
+        r'career objective', r'professional summary', r'work experience',
+        r'education.*details?', r'technical skills', r'projects?[^a-z]',
+        r'certifications?', r'contact.*me', r'email.*me', r'phone.*me',
+        r'linkedin\.com', r'github\.com', r'portfolio', r'resume', r'curriculum vitae'
+    ]
+    
+    # Strong indicators of non-resume
+    non_resume_indicators = [
+        r'government of', r'ministry of', r'department of', r'official',
+        r'circular', r'notification', r'memorandum', r'list.*candidates',
+        r'shortlisted', r'engagement.*schedule', r'divisional office',
+        r'postal.*circle', r'administrative', r'office.*order'
+    ]
+    
+    # Count matches
+    resume_matches = sum(1 for pattern in resume_indicators if re.search(pattern, text_lower))
+    non_resume_matches = sum(1 for pattern in non_resume_indicators if re.search(pattern, text_lower))
+    
+    print(f"DEBUG: Resume indicators: {resume_matches}, Non-resume indicators: {non_resume_matches}")
+    
+    # If we have strong non-resume indicators, reject
+    if non_resume_matches >= 2:
+        print("DEBUG: Strong non-resume indicators found, rejecting")
+        return False
+    
+    # If we have good resume indicators and no strong non-resume indicators, accept
+    if resume_matches >= 2 and non_resume_matches == 0:
+        print("DEBUG: Good resume indicators found, accepting")
+        return True
+    
+    # Default to rejection if unclear
+    print("DEBUG: Unclear document type, defaulting to rejection")
+    return False
 
 
 def extract_candidate_name(resume_text: str) -> str:
     """
-    Extract candidate name from the resume.
-    Uses heuristics first; falls back to LLM if needed.
+    Extract candidate name from resume using LLM with regex fallback.
     """
     t = resume_text or ""
-    lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
-    print(f"DEBUG: First 10 lines of resume: {lines[:10]}")
+    print(f"DEBUG: Using LLM for name extraction")
     
-    # Common job titles to exclude
-    job_titles = {
-        'developer', 'engineer', 'manager', 'analyst', 'designer', 'consultant',
-        'specialist', 'coordinator', 'administrator', 'director', 'lead',
-        'senior', 'junior', 'full stack', 'backend', 'frontend', 'software',
-        'web', 'mobile', 'data', 'system', 'network', 'security'
-    }
-    
-    # Prefer top-of-document candidates - look for actual names first
-    for ln in lines[:25]:
-        if _EMAIL_RE.search(ln) or _PHONE_RE.search(ln):
-            continue
-            
-        # Skip lines with job titles
-        line_lower = ln.lower()
-        if any(title in line_lower for title in job_titles):
-            print(f"DEBUG: Skipping line with job title: '{ln}'")
-            continue
-            
-        # Skip section headers
-        if any(header in line_lower for header in ['contact', 'summary', 'objective', 'experience', 'education', 'skills']):
-            print(f"DEBUG: Skipping section header: '{ln}'")
-            continue
-            
-        # A more strict "name-ish" pattern: 2-4 words, letters/spaces/punctuation, no numbers
-        # Look for ALL CAPS names first (common in resume headers)
-        if len(ln) <= 60 and re.fullmatch(r"[A-Za-z][A-Za-z.\' -]*(?:\s+[A-Za-z][A-Za-z.\' -]*){1,3}", ln):
-            if len(re.findall(r"[A-Za-z]", ln)) >= 3:  # Reduced from 6 to catch shorter names
-                # Priority 1: ALL CAPS names (like "ASIFA")
-                if ln.isupper() and len(ln.split()) <= 2:
-                    print(f"DEBUG: Found ALL CAPS name: '{ln}'")
-                    return ln
-                # Priority 2: Proper case names (like "John Smith")
-                elif any(c.isupper() for c in ln.split()[0] if ln.split()):
-                    print(f"DEBUG: Found proper case name: '{ln}'")
-                    return ln
-
-    # Fallback to LLM.
+    # Use LLM for name extraction
     snippet = t[:4000]
-    print(f"DEBUG: Using LLM fallback for name extraction")
     prompt = (
-        "Extract the candidate's full name from the resume.\n"
-        "Look for the person's actual name (like 'John Smith' or 'ASIFA'), NOT their job title.\n"
-        "Names are usually at the top of the resume and may be in ALL CAPS.\n"
-        "Return ONLY the name string (no quotes, no additional text).\n\n"
-        f"RESUME:\n{snippet}"
+        "You are an expert resume parser. Extract the candidate's full name from this resume.\n\n"
+        "Guidelines:\n"
+        "- Look for the person's actual name (like 'John Smith', 'Jane Doe', 'ASIFA Khan')\n"
+        "- Names are typically at the top of the resume and may be in ALL CAPS\n"
+        "- Do NOT extract job titles, company names, or section headers\n"
+        "- Return only the person's name, nothing else\n"
+        "- If you cannot find a clear name, return 'Unknown'\n\n"
+        "RESUME TEXT:\n"
+        f"{snippet}\n\n"
+        "Return ONLY the name string (no quotes, no additional text)."
     )
-    resp = call_llm(prompt) or ""
-    resp = resp.strip().splitlines()[0].strip()
-    print(f"DEBUG: LLM response for name: '{resp}'")
-    # Basic cleanup.
-    resp = re.sub(r"[^A-Za-z.\' -]", "", resp).strip()
-    result = resp[:60] if resp else ""
-    print(f"DEBUG: Final extracted name: '{result}'")
-    return result
+    
+    try:
+        from services.llm_service import call_llm
+        resp = call_llm(prompt) or ""
+        resp = resp.strip().splitlines()[0].strip()
+        print(f"DEBUG: LLM response for name: '{resp}'")
+        
+        # Basic cleanup
+        resp = re.sub(r"[^A-Za-z.\' -]", "", resp).strip()
+        result = resp[:60] if resp else ""
+        print(f"DEBUG: Final extracted name: '{result}'")
+        
+        # If LLM couldn't find a name or returned something generic, use fallback
+        if not result or result.lower() in ['unknown', 'name', 'candidate', 'not found']:
+            print("DEBUG: LLM could not find name, using regex fallback")
+            return _extract_name_with_regex(t)
+            
+        return result
+        
+    except Exception as e:
+        print(f"DEBUG: LLM name extraction error: {e}")
+        # Use regex fallback
+        return _extract_name_with_regex(t)
+
+
+def _extract_name_with_regex(text: str) -> str:
+    """
+    Fallback name extraction using regex patterns.
+    """
+    lines = text.splitlines()[:10]  # Check first 10 lines
+    text_upper = text.upper()
+    
+    # Common name patterns
+    name_patterns = [
+        r'^([A-Z][a-z]+ [A-Z][a-z]+)',  # First Last
+        r'^([A-Z]+ [A-Z]+)',             # ALL CAPS names
+        r'^([A-Z][a-z]+ [A-Z][a-z]+ [A-Z][a-z]+)',  # First Middle Last
+        r'^([A-Z]\. [A-Z][a-z]+)',       # Initial Last
+        r'^([A-Z][a-z]+ [A-Z]\.)',       # First Initial
+    ]
+    
+    # Look for names in first few lines
+    for i, line in enumerate(lines):
+        line = line.strip()
+        if not line:
+            continue
+            
+        # Skip lines that are clearly not names
+        skip_patterns = [
+            r'RESUME', r'CURRICULUM', r'VITAE', r'OBJECTIVE', r'EXPERIENCE',
+            r'EDUCATION', r'SKILLS', r'CONTACT', r'EMAIL', r'PHONE', r'@',
+            r'\d', r'http', r'www', r'.com', r'.net', r'.org'
+        ]
+        
+        if any(re.search(pattern, line, re.IGNORECASE) for pattern in skip_patterns):
+            continue
+            
+        # Try each name pattern
+        for pattern in name_patterns:
+            match = re.search(pattern, line)
+            if match:
+                name = match.group(1).strip()
+                # Validate name (2-3 words, letters only, reasonable length)
+                if 2 <= len(name.split()) <= 3 and len(name) >= 3 and len(name) <= 50:
+                    if re.fullmatch(r"[A-Za-z\. '\-]+", name):
+                        print(f"DEBUG: Regex fallback found name: '{name}'")
+                        return name
+    
+    print("DEBUG: Regex fallback could not find name")
+    return ""
 
 
 def _extract_resume_entities(resume_text: str) -> dict:
     """
-    Extract skills, projects, certifications from the resume.
+    Extract skills, projects, certifications from resume using only LLM.
     Returns a dict with keys: skills, projects, certifications.
     """
     text = resume_text or ""
-
-    # ---------- Heuristic extraction (fast, offline, reliable) ----------
-    # If the LLM call fails, we still want match_score to work.
-    lines = [ln.strip() for ln in text.splitlines()]
-    lines = [ln for ln in lines if ln]
-    lower_lines = [ln.lower() for ln in lines]
-
-    section_header_indices = {k: [] for k in ["skills", "projects", "certifications", "experience", "education"]}
-
-    def _looks_like_header(original_line: str, line_l: str) -> bool:
-        # Header lines are typically short and have no sentence-like punctuation.
-        if len(original_line) > 45:
-            return False
-        word_count = len(original_line.split())
-        if word_count > 6:
-            return False
-        if line_l.endswith(":"):
-            return True
-        # e.g. "SKILLS", "EDUCATION"
-        if original_line.isupper():
-            return True
-        # e.g. "PROJECT EXPERIENCE." / "CAREER SUMMARY."
-        if re.fullmatch(r"[A-Za-z\\s]+\\.?[A-Za-z\\s]*\\.?", original_line):
-            return True
-        return False
-
-    for idx, ln_l in enumerate(lower_lines):
-        original_line = lines[idx]
-        for key in section_header_indices.keys():
-            if any(re.search(pat, ln_l, re.IGNORECASE) for pat in _SECTION_PATTERNS.get(key, [])) and _looks_like_header(
-                original_line, ln_l
-            ):
-                section_header_indices[key].append(idx)
-
-    # Union of known section headers: stop capturing when any of these appears.
-    all_header_pats = []
-    for pats in _SECTION_PATTERNS.values():
-        all_header_pats.extend(pats)
-
-    def _is_any_header(idx: int) -> bool:
-        original_line = lines[idx]
-        line_l = lower_lines[idx]
-        if not _looks_like_header(original_line, line_l):
-            return False
-        return any(re.search(pat, line_l, re.IGNORECASE) for pat in all_header_pats)
-
-    def _capture_section_lines(start_idx: int) -> list[str]:
-        end_idx = len(lines)
-        for j in range(start_idx + 1, len(lines)):
-            if _is_any_header(j):
-                end_idx = j
-                break
-        return lines[start_idx + 1 : end_idx]
-
-    def _clean_bullet(s: str) -> str:
-        s2 = s.strip()
-        while s2 and s2[0] in ["-", "*", "•", "·"]:
-            s2 = s2[1:].strip()
-        return s2
-
-    def _heuristic_extract_skills(section_lines: list[str]) -> list[str]:
-        joined = " | ".join([ln.replace("•", "-") for ln in section_lines])
-        # Split on common separators.
-        parts = re.split(r"[,\u2022;|/]\s*|\s+\|\s+|\s+-\s+", joined)
-        skills = []
-        seen = set()
-        for p in parts:
-            item = _clean_bullet(p)
-            item_l = item.lower()
-            if not item or item_l in seen:
-                continue
-            # Keep only plausible short tech phrases.
-            if len(item) < 2 or len(item) > 50:
-                continue
-            if not re.search(r"[a-zA-Z]", item):
-                continue
-            # Avoid catching long sentences.
-            if len(item.split()) > 6:
-                continue
-            skills.append(item)
-            seen.add(item_l)
-            if len(skills) >= 15:
-                break
-        return skills
-
-    def _heuristic_extract_projects(section_lines: list[str]) -> list[str]:
-        projects = []
-        for ln in section_lines:
-            item = _clean_bullet(ln)
-            if not item:
-                continue
-            if len(item) < 8:
-                continue
-            # Avoid swallowing whole paragraphs.
-            if len(item) > 160:
-                item = item[:160].strip()
-            projects.append(item)
-            if len(projects) >= 5:
-                break
-        return projects
-
-    def _heuristic_extract_certs(section_lines: list[str]) -> list[str]:
-        certs = []
-        seen = set()
-        for ln in section_lines:
-            item = _clean_bullet(ln)
-            if not item:
-                continue
-            if len(item) < 5:
-                continue
-            item_l = item.lower()
-            if item_l in seen:
-                continue
-            # Split if a line contains multiple certs.
-            subparts = re.split(r"[,;]\s*", item)
-            for sp in subparts:
-                sp2 = _clean_bullet(sp)
-                if not sp2 or sp2.lower() in seen:
-                    continue
-                if len(certs) >= 8:
-                    return certs
-                certs.append(sp2)
-                seen.add(sp2.lower())
-        return certs
-
-    skills_section = section_header_indices["skills"][0] if section_header_indices["skills"] else None
-    projects_section = section_header_indices["projects"][0] if section_header_indices["projects"] else None
-    certs_section = section_header_indices["certifications"][0] if section_header_indices["certifications"] else None
-
-    skills = _heuristic_extract_skills(_capture_section_lines(skills_section)) if skills_section is not None else []
-    projects = _heuristic_extract_projects(_capture_section_lines(projects_section)) if projects_section is not None else []
-    certifications = _heuristic_extract_certs(_capture_section_lines(certs_section)) if certs_section is not None else []
-
-    # If heuristics found anything, use it.
-    if skills or projects or certifications:
-        return {"skills": skills, "projects": projects, "certifications": certifications}
-
-    # ---------- LLM fallback extraction ------
-    # ----
+    
+    print(f"DEBUG: Using LLM for resume entity extraction")
+    
+    # Use LLM for all extraction
     snippet = text[:8000]
     prompt = (
-        "Extract the following from the resume text.\n"
-        "- skills: short tech skill phrases (max 15)\n"
-        "- projects: short project descriptions (max 5)\n"
-        "- certifications: certification names (max 8)\n\n"
-        "Return ONLY valid JSON with keys: skills, projects, certifications.\n"
-        "If unknown, use empty arrays.\n\n"
-        f"RESUME:\n{snippet}"
+        "You are an expert resume parser. Extract the following information from the resume:\n"
+        "- skills: Technical skills, programming languages, tools, frameworks (max 15 items)\n"
+        "- projects: Project names and brief descriptions (max 5 items)\n"
+        "- certifications: Professional certifications, certificates, licenses (max 8 items)\n\n"
+        "Guidelines:\n"
+        "- Extract only relevant, professional items\n"
+        "- Keep items concise and specific\n"
+        "- Avoid generic soft skills unless specifically mentioned as technical\n"
+        "- Include programming languages, frameworks, databases, tools\n"
+        "- For projects, include both name and brief description if available\n\n"
+        "Return ONLY valid JSON with this exact format:\n"
+        "{\n"
+        '  "skills": ["skill1", "skill2", ...],\n'
+        '  "projects": ["project1", "project2", ...],\n'
+        '  "certifications": ["cert1", "cert2", ...]\n'
+        "}\n\n"
+        f"RESUME TEXT:\n{snippet}"
     )
-    content = call_llm(prompt) or ""
-    match = re.search(r"\{.*\}", content, re.DOTALL)
-    if not match:
-        return {"skills": [], "projects": [], "certifications": []}
-
+    
     try:
-        data = json.loads(match.group())
-        return {
-            "skills": data.get("skills") or [],
-            "projects": data.get("projects") or [],
-            "certifications": data.get("certifications") or [],
-        }
-    except Exception:
+        from services.llm_service import call_llm
+        content = call_llm(prompt) or ""
+        print(f"DEBUG: LLM response for entities: {content[:200]}...")
+        
+        # Extract JSON from response
+        import re
+        match = re.search(r'\{.*\}', content, re.DOTALL)
+        if not match:
+            print("DEBUG: No JSON found in LLM response, using empty arrays")
+            return {"skills": [], "projects": [], "certifications": []}
+
+        try:
+            data = json.loads(match.group())
+            result = {
+                "skills": data.get("skills", [])[:15],  # Limit to 15
+                "projects": data.get("projects", [])[:5],  # Limit to 5
+                "certifications": data.get("certifications", [])[:8]  # Limit to 8
+            }
+            
+            # Validate and clean data
+            for key in result:
+                result[key] = [item.strip() for item in result[key] if isinstance(item, str) and item.strip() and len(item.strip()) > 1]
+            
+            print(f"DEBUG: Extracted {len(result['skills'])} skills, {len(result['projects'])} projects, {len(result['certifications'])} certifications")
+            return result
+            
+        except json.JSONDecodeError as e:
+            print(f"DEBUG: JSON parsing error: {e}")
+            return {"skills": [], "projects": [], "certifications": []}
+            
+    except Exception as e:
+        print(f"DEBUG: LLM entity extraction error: {e}")
         return {"skills": [], "projects": [], "certifications": []}
-
-
-def _item_matches_jd(jd_lower: str, item: str) -> bool:
-    if not item:
-        return False
-    s = item.strip().lower()
-    if not s:
-        return False
-
-    # Direct substring match first
-    if s in jd_lower:
-        return True
-
-    # Token overlap as a fallback with more lenient matching
-    tokens = [tok for tok in re.split(r"[\W_]+", s) if len(tok) >= 2]
-    if not tokens:
-        return False
-
-    # Check if any token appears in JD
-    for token in tokens:
-        if token in jd_lower:
-            return True
-    
-    # Partial matching for multi-word terms
-    if len(tokens) >= 2:
-        # Check if consecutive tokens appear together in JD
-        for i in range(len(tokens) - 1):
-            bigram = f"{tokens[i]} {tokens[i+1]}"
-            if bigram in jd_lower:
-                return True
-    
-    # Fallback: check if at least 35% of tokens match (reduced from 0.35 to 0.25)
-    hit_count = sum(1 for tok in tokens if tok in jd_lower)
-    ratio = hit_count / max(1, len(tokens))
-    return ratio >= 0.25  # Reduced threshold for better matching
 
 
 def extract_resume_entities(resume_text: str) -> dict:
@@ -334,146 +283,88 @@ def extract_resume_entities(resume_text: str) -> dict:
 
 def match_score(jd: str, resume: str, entities: dict | None = None) -> int:
     """
-    Compute match percentage (0-100) using Grok LLM for intelligent matching.
+    Compute match percentage (0-100) using rule-based scoring with LLM skill extraction.
     """
+    print("="*50)
+    print("DEBUG: RULE-BASED MATCHING SYSTEM ACTIVATED")
+    print("="*50)
+    
     jd_text = jd or ""
     resume_text = resume or ""
     
-    print(f"DEBUG: Using Grok LLM for JD-Resume matching")
+    print(f"DEBUG: Using rule-based JD-Resume matching")
     print(f"DEBUG: JD text length: {len(jd_text)}")
     print(f"DEBUG: Resume text length: {len(resume_text)}")
 
-    # Use Grok LLM to evaluate match
-    prompt = f"""
-You are an expert HR recruiter evaluating how well a candidate's resume matches a job description.
-
-JOB DESCRIPTION:
-{jd_text[:2000]}
-
-RESUME:
-{resume_text[:2000]}
-
-TASK:
-Evaluate the match between this job description and resume on a scale of 0-100%.
-
-Consider:
-1. **Skills Match**: How many required skills are present in resume
-2. **Experience Alignment**: Does experience level match job requirements
-3. **Project Relevance**: Are projects relevant to job role
-4. **Certifications**: Are certifications relevant and current
-5. **Overall Fit**: General suitability for the position
-
-SCORING GUIDELINES:
-- 90-100: Excellent match - strong candidate
-- 75-89: Good match - qualified candidate  
-- 50-74: Moderate match - some gaps
-- 25-49: Poor match - significant gaps
-- 0-24: Very poor match - not suitable
-
-Return ONLY a single number (0-100) representing the match percentage.
-No explanations, no text, just the number.
-"""
-
-    try:
-        from services.llm_service import call_llm
-        llm_response = call_llm(prompt)
-        
-        if llm_response:
-            # Extract number from response
-            import re
-            numbers = re.findall(r'\b(\d{1,3})\b', llm_response)
-            if numbers:
-                score = int(numbers[0])
-                # Ensure score is within valid range
-                score = max(0, min(100, score))
-                print(f"DEBUG: Grok LLM match score: {score}%")
-                return score
-        
-        print("DEBUG: Grok LLM matching failed, using fallback")
-        
-    except Exception as e:
-        print(f"DEBUG: LLM matching error: {e}")
+    # Extract skills using LLM (this works well)
+    if not entities:
+        entities = extract_resume_entities(resume_text)
     
-    # Fallback to heuristic matching if LLM fails
-    print("DEBUG: Falling back to heuristic matching")
-    return _heuristic_match_score(jd_text, resume_text, entities)
-
-
-def _heuristic_match_score(jd: str, resume: str, entities: dict | None = None) -> int:
-    """
-    Enhanced fallback heuristic matching if LLM fails.
-    """
-    jd_lower = jd.lower()
+    resume_skills = [skill.lower().strip() for skill in entities.get("skills", [])]
+    print(f"DEBUG: Resume skills extracted: {resume_skills}")
     
-    entities = entities if entities is not None else _extract_resume_entities(resume or "")
-    skills = [s for s in (entities.get("skills") or []) if isinstance(s, str) and s.strip()]
-    projects = [p for p in (entities.get("projects") or []) if isinstance(p, str) and p.strip()]
-    certifications = [c for c in (entities.get("certifications") or []) if isinstance(c, str) and c.strip()]
-
-    parts = []
-    weights = {"skills": 0.5, "projects": 0.3, "certifications": 0.2}  # Adjusted weights for better balance
-
-    def ratio(items):
-        if not items:
-            return None
-        matched = sum(1 for it in items if _item_matches_jd(jd_lower, it))
-        return matched / max(1, len(items))
-
-    r_skills = ratio(skills)
-    r_projects = ratio(projects)
-    r_certs = ratio(certifications)
-
-    # Add bonus points for exact matches
-    def exact_match_bonus(items):
-        if not items:
-            return 0
-        exact_matches = sum(1 for it in items if it.lower() in jd_lower)
-        return (exact_matches / max(1, len(items))) * 0.1  # 10% bonus for exact matches
-
-    if r_skills is not None:
-        skill_bonus = exact_match_bonus(skills)
-        parts.append(r_skills * weights["skills"] + skill_bonus)
-    if r_projects is not None:
-        project_bonus = exact_match_bonus(projects)
-        parts.append(r_projects * weights["projects"] + project_bonus)
-    if r_certs is not None:
-        cert_bonus = exact_match_bonus(certifications)
-        parts.append(r_certs * weights["certifications"] + cert_bonus)
-
-    # Add overall text similarity bonus
-    def text_similarity_bonus():
-        jd_words = set(re.findall(r'\b\w+\b', jd_lower))
-        resume_words = set(re.findall(r'\b\w+\b', resume.lower()))
-        if not jd_words or not resume_words:
-            return 0
-        common_words = jd_words.intersection(resume_words)
-        similarity = len(common_words) / len(jd_words)
-        return similarity * 0.05  # 5% bonus for text similarity
-
-    parts.append(text_similarity_bonus())
-
-    included_weight = 0.0
-    if skills:
-        included_weight += weights["skills"]
-    if projects:
-        included_weight += weights["projects"]
-    if certifications:
-        included_weight += weights["certifications"]
+    # Extract JD skills using simple keyword matching
+    jd_skills = []
+    common_tech_skills = [
+        "react", "javascript", "html", "css", "typescript", "nodejs", "angular", "vue",
+        "python", "java", "c++", "c#", "sql", "mongodb", "postgresql", "mysql",
+        "aws", "azure", "docker", "kubernetes", "git", "github", "gitlab",
+        "frontend", "backend", "full stack", "ui", "ux", "api", "rest", "graphql"
+    ]
     
-    # Always include text similarity in weight
-    included_weight += 0.05
-
-    if included_weight <= 0:
-        return 0
-
-    score_01 = sum(parts) / included_weight  # 0..1
-    score = int(round(max(0.0, min(1.0, score_01)) * 100))
-    print(f"DEBUG: Enhanced heuristic fallback score: {score}%")
+    jd_lower = jd_text.lower()
+    for skill in common_tech_skills:
+        if skill in jd_lower:
+            jd_skills.append(skill)
     
-    # Safe debug logging without formatting None values
-    skills_str = f"{r_skills:.2f}" if r_skills is not None else "N/A"
-    projects_str = f"{r_projects:.2f}" if r_projects is not None else "N/A"
-    certs_str = f"{r_certs:.2f}" if r_certs is not None else "N/A"
-    print(f"DEBUG: Skills match: {skills_str}, Projects match: {projects_str}, Certs match: {certs_str}")
+    print(f"DEBUG: JD skills extracted: {jd_skills}")
     
-    return score
+    # Calculate matches
+    direct_matches = 0
+    related_matches = 0
+    
+    for jd_skill in jd_skills:
+        if jd_skill in resume_skills:
+            direct_matches += 1
+            print(f"DEBUG: Direct match found: {jd_skill}")
+        else:
+            # Check for related skills
+            related_map = {
+                "javascript": ["nodejs", "typescript", "react", "angular", "vue"],
+                "react": ["javascript", "typescript", "frontend"],
+                "python": ["django", "flask", "fastapi"],
+                "java": ["spring", "hibernate", "maven"],
+                "sql": ["postgresql", "mysql", "mongodb", "database"],
+                "frontend": ["html", "css", "javascript", "react", "vue", "angular"],
+                "backend": ["nodejs", "python", "java", "sql", "api"],
+                "full stack": ["frontend", "backend", "react", "nodejs", "sql"]
+            }
+            
+            for related_skill in related_map.get(jd_skill, []):
+                if related_skill in resume_skills:
+                    related_matches += 1
+                    print(f"DEBUG: Related match found: {jd_skill} -> {related_skill}")
+                    break
+    
+    # Calculate score using the point system
+    base_score = (direct_matches * 15) + (related_matches * 8)
+    
+    # Experience bonus (check for experience keywords)
+    experience_keywords = ["years", "experience", "worked", "developed", "built", "created"]
+    experience_bonus = min(25, sum(5 for keyword in experience_keywords if keyword in resume_text.lower()))
+    
+    # Project bonus (check for project keywords)
+    project_keywords = ["project", "application", "system", "platform", "website", "app"]
+    project_bonus = min(20, sum(4 for keyword in project_keywords if keyword in resume_text.lower()))
+    
+    final_score = base_score + experience_bonus + project_bonus
+    final_score = min(100, max(0, final_score))
+    
+    print(f"DEBUG: Direct matches: {direct_matches} (×15 = {direct_matches * 15})")
+    print(f"DEBUG: Related matches: {related_matches} (×8 = {related_matches * 8})")
+    print(f"DEBUG: Experience bonus: {experience_bonus}")
+    print(f"DEBUG: Project bonus: {project_bonus}")
+    print(f"DEBUG: Final calculated score: {final_score}%")
+    
+    return final_score
+

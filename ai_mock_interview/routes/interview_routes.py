@@ -9,8 +9,47 @@ import os
 from utils.camera_monitor import detect_faces
 import subprocess
 from datetime import datetime
+import re
 
 interview_bp = Blueprint("interview", __name__)
+
+def _is_valid_job_description(jd_text: str) -> bool:
+    """
+    Validate if the provided text is a proper job description.
+    Returns False for random paragraphs, essays, or non-job descriptions.
+    """
+    if not jd_text or len(jd_text.strip()) < 100:
+        print("DEBUG: JD too short")
+        return False
+    
+    jd_lower = jd_text.lower()
+    
+    # Check for job description indicators
+    job_indicators = [
+        'required skills', 'qualifications', 'experience', 'responsibilities',
+        'job description', 'position', 'role', 'candidate', 'developer',
+        'engineer', 'manager', 'analyst', 'designer', 'architect',
+        'skills required', 'requirements', 'must have', 'should have',
+        'years of experience', 'bachelor', 'master', 'degree'
+    ]
+    
+    # Check for non-job content indicators
+    non_job_indicators = [
+        'the quick brown', 'once upon a time', 'in conclusion', 'this essay',
+        'my name is', 'i am a student', 'i am writing', 'dear sir',
+        'to whom it may concern', 'abstract', 'introduction', 'summary'
+    ]
+    
+    job_score = sum(1 for indicator in job_indicators if indicator in jd_lower)
+    non_job_score = sum(1 for indicator in non_job_indicators if indicator in jd_lower)
+    
+    print(f"DEBUG: JD indicators: {job_score}, Non-job indicators: {non_job_score}")
+    
+    # Must have at least 2 job indicators and fewer non-job indicators
+    is_valid = job_score >= 2 and non_job_score == 0
+    
+    print(f"DEBUG: JD validation result: {is_valid}")
+    return is_valid
 
 SESSION = {
     "questions": [],
@@ -184,15 +223,16 @@ def start():
         "interview_active": True,
         "interview_terminated": False,
         "termination_reason": "",
-        "violation_screenshots": [],
-        "violation_details": [],
         "proctoring_issue_count": 0,
         "proctoring_terminated": False,
-        "last_violation_time": None,
-        "last_violation_count": 0,
-        "face_violations": 0
+        "violation_screenshots": [],
+        "violation_details": [],
+        "consecutive_low_scores": 0,
+        "last_violation_count": 0
     })
     
+    print("DEBUG: Session reset for new interview")
+
     jd = request.form.get("jd")
     name = request.form.get("name")  # Optional; we will prefer extracting from resume text.
     resume_file = request.files.get("resume")
@@ -200,46 +240,77 @@ def start():
     if not jd or not resume_file:
         return jsonify({"error": "Missing input data"})
 
+    print(f"DEBUG: JD text received: '{jd[:200]}...' (length: {len(jd)})")
+    print(f"DEBUG: Resume file: {resume_file.filename}")
+
     # Strict resume format validation.
     filename = (resume_file.filename or "").lower()
     ext = os.path.splitext(filename)[1]
     if ext not in [".pdf", ".docx"]:
+        print(f"DEBUG: Invalid file extension: {ext}")
         return jsonify({
             "status": "error",
-            "message": "Upload the correct document. The uploaded file does not appear to be a resume."
+            "message": "❌ Invalid file format! Please upload a PDF or DOCX resume file."
         })
 
     path = save_file(resume_file)
     resume_text = extract_text(path)
 
+    print(f"DEBUG: Extracted resume text: '{resume_text[:300]}...' (length: {len(resume_text)})")
+
     if not resume_text:
+        print(f"DEBUG: Empty resume text extracted")
         return jsonify({
             "status": "error",
-            "message": "Upload the correct document. The uploaded file does not appear to be a resume."
+            "message": "❌ Could not read the resume file! Please ensure it's a valid PDF or DOCX file with readable text."
         })
 
-    if not is_resume(resume_text):
+    print(f"DEBUG: About to call is_resume LLM validation...")
+    is_resume_result = is_resume(resume_text)
+    print(f"DEBUG: LLM is_resume result: {is_resume_result}")
+
+    if not is_resume_result:
+        print(f"DEBUG: Resume validation failed - LLM says it's not a resume")
         return jsonify({
             "status": "error",
-            "message": "Upload the correct document. The uploaded file does not appear to be a resume."
+            "message": "❌ This is not a valid resume! Please upload a proper resume with your work experience, skills, and education."
+        })
+
+    # Validate JD is a proper job description
+    if not _is_valid_job_description(jd):
+        print(f"DEBUG: JD validation failed - not a proper job description")
+        return jsonify({
+            "status": "error",
+            "message": "❌ This is not a valid job description! Please provide a proper job description with required skills, experience, and qualifications."
         })
 
     # Extract resume entities once; use them both for match scoring and interview adaptation.
     entities = extract_resume_entities(resume_text)
+    print(f"DEBUG: Extracted entities - Skills: {len(entities.get('skills', []))}, Projects: {len(entities.get('projects', []))}, Certs: {len(entities.get('certifications', []))}")
+    print(f"DEBUG: Skills: {entities.get('skills', [])[:5]}")  # Show first 5 skills
+    print(f"DEBUG: JD length: {len(jd)} chars, Resume length: {len(resume_text)} chars")
 
     match = match_score(jd, resume_text, entities=entities)
+    print(f"DEBUG: Final match score: {match}%")
 
     if match < 25:
         return jsonify({
             "status": "rejected",
-            "message": "Your resume does not sufficiently match the job description. Please update your resume and try again.",
-            "match_score": ""
+            "message": f"❌ Resume doesn't match the job description! Match score: {match}%. Please update your resume to better match the required skills and experience.",
+            "match_score": match
         })
 
     extracted_name = extract_candidate_name(resume_text) or ""
     print(f"DEBUG: Extracted name from resume: '{extracted_name}'")
-    final_name = extracted_name if extracted_name else (name or "")
+    
+    # Prioritize resume name over input name
+    final_name = extracted_name if extracted_name.strip() else (name or "")
     print(f"DEBUG: Final name to be used: '{final_name}'")
+    
+    # If resume name extraction failed but we have input name, use input name
+    if not extracted_name.strip() and name.strip():
+        print(f"DEBUG: Using input name since resume name extraction failed: '{name}'")
+        final_name = name
     if not final_name.strip():
         final_name = "Candidate"
 
@@ -710,11 +781,13 @@ def monitor():
     
     # Check if interview was already terminated
     if SESSION.get("interview_terminated", False):
+        print(f"DEBUG: Interview already terminated, reason: {SESSION.get('termination_reason', 'Unknown')}")
         return jsonify({
             "terminate": True,
             "reason": SESSION.get("termination_reason", "Interview was terminated"),
             "faces": 0,
             "warnings": "Interview terminated",
+            "terminated": True  # Add this field for frontend
         })
     
     payload = request.get_json(silent=True) or {}
@@ -731,6 +804,15 @@ def monitor():
     faces = detect_faces(image)
 
     print(f"DEBUG: Monitor endpoint - Faces detected: {faces}")
+
+    # Process lip sync analysis
+    try:
+        from services.lip_sync_service import lip_sync_detector
+        lip_sync_result = lip_sync_detector.process_frame({"image": image})
+        print(f"DEBUG: Lip sync analysis - Cheating: {lip_sync_result.get('cheating', False)}, Similarity: {lip_sync_result.get('similarity', 0):.2f}")
+    except Exception as e:
+        print(f"DEBUG: Lip sync processing error: {e}")
+        lip_sync_result = {"cheating": False, "similarity": 1.0}
 
     warnings = f"Detected {faces} face(s). Please keep your camera on and facing to the screen."
     terminate = False
@@ -754,6 +836,7 @@ def monitor():
         "reason": reason,
         "faces": faces,
         "warnings": warnings,
+        "terminated": terminate  # Add this field for frontend consistency
     })
 
 
@@ -778,6 +861,19 @@ def end():
         "percentage": (avg / 5) * 100,
         "feedback": feedback
     })
+
+# ---------------- HOME PAGE ----------------
+@interview_bp.route("/")
+def home():
+    """Render interview page with fresh session"""
+    # Clear any existing session data for fresh start, but only if interview wasn't terminated
+    if SESSION.get("interview_active", False) and not SESSION.get("interview_terminated", False):
+        print("DEBUG: Clearing existing session data for fresh start")
+        SESSION.clear()
+    elif SESSION.get("interview_terminated", False):
+        print("DEBUG: Interview was terminated, keeping session data for result page")
+    
+    return render_template("interview.html")
 
 # ---------------- RESULT PAGE ----------------
 @interview_bp.route("/result")
@@ -807,8 +903,17 @@ def result():
     # Add question_feedback to enhanced_feedback
     enhanced_feedback["question_feedback"] = question_feedback
     
-    # Generate lip sync results
-    lip_sync_score = 85 + (percentage * 0.15)  # Simulated lip sync score based on performance
+    # Generate lip sync results using real detector
+    try:
+        from services.lip_sync_service import lip_sync_detector
+        lip_sync_score = lip_sync_detector.get_realism_score()
+        print(f"DEBUG: Real lip sync score: {lip_sync_score}%")
+    except Exception as e:
+        print(f"DEBUG: Lip sync detector error: {e}")
+        # Fallback to simulated score
+        lip_sync_score = 85 + (percentage * 0.15)
+        print(f"DEBUG: Using fallback lip sync score: {lip_sync_score}%")
+    
     lip_sync_feedback = generate_lip_sync_feedback(lip_sync_score)
     
     # Get violation data for result page

@@ -118,23 +118,10 @@ Return JSON only.
             "technology": data.get("technology", technology),
             "difficulty": data.get("difficulty", difficulty),
         }
-    # Generate varied fallback questions to avoid repetition
-    fallback_questions = [
-        f"Hello {safe_name}, let's begin with {technology}. Can you explain a key concept?",
-        f"Hello {safe_name}, welcome to the interview. What's your understanding of {technology}?",
-        f"Hello {safe_name}, let's start with {technology}. Can you describe a basic principle?",
-        f"Hello {safe_name}, nice to meet you. What do you know about {technology}?",
-        f"Hello {safe_name}, let's dive into {technology}. Can you explain an foundational concept?",
-        f"Hello {safe_name}, let's discuss {technology}. What's your experience with it?",
-        f"Hello {safe_name}, can you walk me through a simple {technology} example?",
-        f"Hello {safe_name}, how would you approach a {technology} problem?",
-    ]
     
-    return {
-        "question": random.choice(fallback_questions),
-        "technology": technology,
-        "difficulty": difficulty,
-    }
+    # If LLM fails, return empty dict - no fallback questions
+    print("DEBUG: LLM failed to generate first question, no fallback available")
+    return {}
 
 
 def generate_next_question_json(
@@ -273,94 +260,9 @@ Return JSON only.
             "difficulty": data.get("difficulty", difficulty),
         }
     
-    # Fallback question - specific technical questions based on technology and difficulty
-    fallback_questions = {
-        "Java": {
-            "EASY": [
-                f"{safe_name}, thanks for that answer. What is the difference between a class and an object in Java?",
-                f"{safe_name}, good explanation. Can you explain what inheritance means in Java programming?",
-                f"{safe_name}, thanks for that. What is polymorphism in Java and when would you use it?"
-            ],
-            "MODERATE": [
-                f"{safe_name}, thanks for that answer. How would you implement encapsulation in a Java class?",
-                f"{safe_name}, good point. Can you explain the difference between abstract classes and interfaces in Java?",
-                f"{safe_name}, thanks. How does garbage collection work in Java?"
-            ],
-            "HARD": [
-                f"{safe_name}, excellent answer. Why would you choose composition over inheritance in Java?",
-                f"{safe_name}, great explanation. How would you handle memory management in a Java application?",
-                f"{safe_name}, thanks. What are the trade-offs between different Java collection types?"
-            ]
-        },
-        "Python": {
-            "EASY": [
-                f"{safe_name}, thanks for that answer. What is a Python list and how is it different from a tuple?",
-                f"{safe_name}, good explanation. Can you explain what a Python function is and how to create one?",
-                f"{safe_name}, thanks. What is the difference between local and global variables in Python?"
-            ],
-            "MODERATE": [
-                f"{safe_name}, thanks for that answer. How would you implement error handling in Python using try-except?",
-                f"{safe_name}, good point. Can you explain list comprehensions in Python with an example?",
-                f"{safe_name}, thanks. What are Python decorators and how would you use them?"
-            ],
-            "HARD": [
-                f"{safe_name}, excellent answer. How does Python's GIL affect multi-threading in Python applications?",
-                f"{safe_name}, great explanation. What are the differences between shallow copy and deep copy in Python?",
-                f"{safe_name}, thanks. How would you optimize memory usage in a Python application?"
-            ]
-        },
-        "Data Structures": {
-            "EASY": [
-                f"{safe_name}, thanks for that answer. What is an array and how does it differ from a linked list?",
-                f"{safe_name}, good explanation. Can you explain what a stack data structure is and when to use it?",
-                f"{safe_name}, thanks. What is the difference between a queue and a stack?"
-            ],
-            "MODERATE": [
-                f"{safe_name}, thanks for that answer. How would you implement a binary search tree?",
-                f"{safe_name}, good point. Can you explain the difference between BFS and DFS traversal?",
-                f"{safe_name}, thanks. What is time complexity and why is it important for algorithms?"
-            ],
-            "HARD": [
-                f"{safe_name}, excellent answer. How would you balance a binary search tree?",
-                f"{safe_name}, great explanation. What are the trade-offs between different sorting algorithms?",
-                f"{safe_name}, thanks. How would you optimize a hash table for better performance?"
-            ]
-        },
-        "Object-Oriented Programming": {
-            "EASY": [
-                f"{safe_name}, thanks for that answer. What are the four main principles of object-oriented programming?",
-                f"{safe_name}, good explanation. Can you explain what encapsulation means in OOP?",
-                f"{safe_name}, thanks. What is inheritance and why is it useful in programming?"
-            ],
-            "MODERATE": [
-                f"{safe_name}, thanks for that answer. How would you implement abstraction in an OOP design?",
-                f"{safe_name}, good point. Can you explain the difference between composition and aggregation?",
-                f"{safe_name}, thanks. What is the Liskov Substitution Principle and why does it matter?"
-            ],
-            "HARD": [
-                f"{safe_name}, excellent answer. How would you design a class hierarchy using SOLID principles?",
-                f"{safe_name}, great explanation. What are the pros and cons of multiple inheritance?",
-                f"{safe_name}, thanks. How would you implement the observer pattern in an object-oriented system?"
-            ]
-        }
-    }
-    
-    # Get fallback questions for the technology, or use generic if not found
-    tech_fallbacks = fallback_questions.get(technology, {})
-    difficulty_fallbacks = tech_fallbacks.get(difficulty, [
-        f"{safe_name}, thanks for that answer. What is a key concept in {technology} you can explain?",
-        f"{safe_name}, good explanation. How would you apply {technology} in a real-world scenario?",
-        f"{safe_name}, thanks. What are the benefits of using {technology} in software development?"
-    ])
-    
-    import random
-    fallback_question = random.choice(difficulty_fallbacks)
-    
-    return {
-        "question": fallback_question,
-        "technology": technology,
-        "difficulty": difficulty,
-    }
+    # If LLM fails, return empty dict - no fallback questions
+    print("DEBUG: LLM failed to generate next question, no fallback available")
+    return {}
 
 
 # -----------------------------------

@@ -192,7 +192,9 @@ setInterval(() => {
         .then(data => {
             if (data.terminate) {
                 alert("Interview terminated: " + data.reason);
-                location.reload();
+                // Redirect to result page instead of reloading
+                window.location.href = '/result';
+                return;
             }
 
             // Track face detection violations

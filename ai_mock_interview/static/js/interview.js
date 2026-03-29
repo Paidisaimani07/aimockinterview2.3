@@ -439,7 +439,7 @@ document.addEventListener('DOMContentLoaded', detectTabSwitch);
 // ---------------- VIOLATION MONITORING ----------------
 let violationDebounceTimer = null;
 let lastViolationTime = 0;
-const VIOLATION_DEBOUNCE_TIME = 3000; // 3 seconds debounce - increased for safety
+const VIOLATION_DEBOUNCE_TIME = 5000; // 5 seconds debounce - very lenient to avoid false violations
 
 function recordMultipleFaceViolation() {
     if (!interviewActive) return;
@@ -684,6 +684,8 @@ async function startInterview() {
 
     if (data.status === "error" || data.status === "rejected") {
         alert(data.message || "Resume validation failed.");
+        // Redirect back to instructions page
+        window.location.href = "/";
         return;
     }
 
@@ -783,22 +785,22 @@ function showRecordingGif() {
         recordingOverlay.id = 'recordingOverlay';
         recordingOverlay.style.cssText = `
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: 20px;
+            right: 20px;
             z-index: 9999;
             background: rgba(0, 0, 0, 0.8);
             border-radius: 15px;
-            padding: 20px;
+            padding: 15px;
             text-align: center;
             color: white;
             font-weight: bold;
-            font-size: 18px;
+            font-size: 14px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             animation: fadeIn 0.3s ease-in;
+            min-width: 150px;
         `;
         
         // Add recording GIF (using your specific GIF)
@@ -806,21 +808,21 @@ function showRecordingGif() {
         recordingGif.src = '/static/images/42787621ed6d40f0c30f0ae423fc572c.gif';
         recordingGif.alt = 'Recording...';
         recordingGif.style.cssText = `
-            width: 80px;
-            height: 80px;
-            margin-bottom: 10px;
+            width: 50px;
+            height: 50px;
+            margin-bottom: 8px;
             border-radius: 50%;
             object-fit: cover;
-            border: 3px solid #ff0000;
-            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+            border: 2px solid #ff0000;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
         `;
         
         // Add recording text
         const recordingText = document.createElement('div');
-        recordingText.textContent = 'Recording in progress...';
+        recordingText.textContent = 'Recording...';
         recordingText.style.cssText = `
-            font-size: 16px;
-            margin-top: 10px;
+            font-size: 12px;
+            margin-top: 5px;
             animation: pulse 1.5s infinite;
         `;
         
@@ -1072,14 +1074,23 @@ function speak(text) {
 
 // ---------------- END INTERVIEW ----------------
 async function endInterview() {
+    try {
+        console.log("DEBUG: Ending interview...");
+        
+        const res = await fetch("/end", { method: "POST" });
+        const data = await res.json();
+        
+        console.log("DEBUG: End interview response:", data);
 
-    const res = await fetch("/end", { method: "POST" });
-    const data = await res.json();
+        const percentage = ((data.average_score / 5) * 100).toFixed(2);
 
-    const percentage = ((data.average_score / 5) * 100).toFixed(2);
+        localStorage.setItem("final_percentage", percentage);
+        localStorage.setItem("scores", JSON.stringify(scores));
 
-    localStorage.setItem("final_percentage", percentage);
-    localStorage.setItem("scores", JSON.stringify(scores));
-
-    window.location.href = "/result";
+        window.location.href = "/result";
+    } catch (error) {
+        console.error("DEBUG: Error ending interview:", error);
+        // Even if there's an error, try to navigate to result page
+        window.location.href = "/result";
+    }
 } 

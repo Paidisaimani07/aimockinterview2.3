@@ -258,9 +258,9 @@ def generate_feedback(average_score, questions, answers):
         q = questions[i]["question"]
         a = answers[i]["answer"]
         score = answers[i]["score"]["total_score"]
-        relevance = answers[i]["score"]["relevance"]
-        clarity = answers[i]["score"]["clarity"]
-        confidence = answers[i]["score"]["confidence"]
+        relevance = answers[i]["score"].get("relevance", 0)
+        clarity = answers[i]["score"].get("clarity", 0)
+        confidence = answers[i]["score"].get("confidence", 0)
 
         qa_text += f"""
 Question: {q}
