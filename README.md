@@ -68,7 +68,7 @@ An advanced AI-powered mock interview platform that provides realistic interview
 
 1. **Clone the Repository**
 ```bash
-git clone https://github.com/Paidisaimani07/version1.3-ai-mock-interview.git
+git clone https://github.com/asifakousar437/Modified-AImockInterview
 cd version1.3-ai-mock-interview
 ```
 
@@ -312,20 +312,7 @@ Enable debug logging by setting `DEBUG=True` in config.py
 ## 📄 License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 👥 Team
-
-- **Lead Developer**: Paidi Saimani
-- **Project Repository**: https://github.com/Paidisaimani07/version1.3-ai-mock-interview
-
-## 📞 Support
-
-For issues and support:
-- Create an issue on GitHub
-- Check the troubleshooting section
-- Review debug logs for error details
-
----
+- **Project Repository**: https://github.com/asifakousar437/Modified-AImockInterview
 
 **Note**: This platform is designed for educational and practice purposes. Always ensure proper consent for video and audio recording during interviews.
 =======
