@@ -416,7 +416,7 @@ function recordTabViolationWithEvidence(violationData, screenshot) {
         
         tabViolations = data.tab_violations;
         document.getElementById('tabViolations').textContent = tabViolations;
-        document.getElementById('tabWarning').style.display = 'block';
+        showToast('Tab switch detected. Please stay focused on the interview.', 'warning', 3000);
         
         console.log(`DEBUG: Tab violations count: ${tabViolations}, Terminated: ${data.terminated}`);
         
@@ -426,11 +426,6 @@ function recordTabViolationWithEvidence(violationData, screenshot) {
         }
     })
     .catch(err => console.error('Error recording tab violation:', err));
-    
-    // Hide warning after 3 seconds
-    setTimeout(() => {
-        document.getElementById('tabWarning').style.display = 'none';
-    }, 3000);
 }
 
 // Initialize tab switching detection
@@ -474,15 +469,16 @@ function recordMultipleFaceViolation() {
         .then(data => {
             multipleFaceViolations = data.multiple_face_violations;
             document.getElementById('multipleFaceViolations').textContent = multipleFaceViolations;
-            document.getElementById('multipleFaceWarning').style.display = 'block';
             
-            // Update warning message based on violation count
-            const warningElement = document.getElementById('multipleFaceWarning');
+            // Show toast with violation warning
+            let toastMessage = '';
             if (multipleFaceViolations === 1) {
-                warningElement.innerHTML = '⚠️ <strong>First Multiple Face Violation!</strong> More than one person detected. One more violation will terminate the interview.';
+                toastMessage = '⚠️ First Multiple Face Violation! More than one person detected. One more violation will terminate the interview.';
             } else if (multipleFaceViolations >= 2) {
-                warningElement.innerHTML = '❌ <strong>Interview Terminated!</strong> Multiple face violations detected.';
+                toastMessage = '❌ Interview Terminated! Multiple face violations detected.';
             }
+            
+            showToast(toastMessage, 'warning', 3000);
             
             if (data.terminated) {
                 endInterviewDueToViolation(data.reason);
@@ -490,13 +486,6 @@ function recordMultipleFaceViolation() {
         })
         .catch(err => console.error('Error recording multiple face violation:', err));
     });
-    
-    // Hide warning and remove borders after 3 seconds
-    setTimeout(() => {
-        document.getElementById('multipleFaceWarning').style.display = 'none';
-        document.body.style.border = '';
-        document.body.style.boxSizing = '';
-    }, 3000);
 }
 
 function recordNoFaceViolation() {
@@ -530,17 +519,31 @@ function recordNoFaceViolation() {
         })
         .then(res => res.json())
         .then(data => {
+            if (data.debounced) return;
+            
             noFaceViolations = data.no_face_violations;
-            document.getElementById('noFaceViolations').textContent = noFaceViolations;
-            document.getElementById('noFaceWarning').style.display = 'block';
+            
+            // Update the counter in the status bar
+            const noFaceEl = document.getElementById('noFaceViolations');
+            if (noFaceEl) noFaceEl.textContent = noFaceViolations;
+            
+            // Show the warning banner
+            const noFaceWarning = document.getElementById('noFaceWarning');
+            const noFaceWarningText = document.getElementById('noFaceWarningText');
+            if (noFaceWarning) noFaceWarning.classList.remove('hidden');
             
             // Update warning message based on violation count
-            const warningElement = document.getElementById('noFaceWarning');
-            if (noFaceViolations === 1) {
-                warningElement.innerHTML = '⚠️ <strong>First No Face Violation!</strong> Camera not detected or covered. One more violation will terminate the interview.';
-            } else if (noFaceViolations >= 2) {
-                warningElement.innerHTML = '❌ <strong>Interview Terminated!</strong> No face violations detected.';
+            if (noFaceWarningText) {
+                if (noFaceViolations === 1) {
+                    noFaceWarningText.innerHTML = '⚠️ <strong>First No Face Violation!</strong> Camera not detected or covered. ' + (5 - noFaceViolations) + ' violations remaining before termination.';
+                } else if (noFaceViolations < 5) {
+                    noFaceWarningText.innerHTML = '⚠️ <strong>No Face Warning ' + noFaceViolations + '/5!</strong> Please keep your face visible. ' + (5 - noFaceViolations) + ' violations remaining.';
+                } else {
+                    noFaceWarningText.innerHTML = '❌ <strong>Interview Terminated!</strong> Exceeded maximum no-face violations.';
+                }
             }
+            
+            showToast('⚠️ No face detected! Violation ' + noFaceViolations + '/5', 'warning', 3000);
             
             if (data.terminated) {
                 endInterviewDueToViolation(data.reason);
@@ -549,12 +552,13 @@ function recordNoFaceViolation() {
         .catch(err => console.error('Error recording no face violation:', err));
     });
     
-    // Hide warning and remove borders after 3 seconds
+    // Hide warning banner and remove borders after 4 seconds
     setTimeout(() => {
-        document.getElementById('noFaceWarning').style.display = 'none';
+        const noFaceWarning = document.getElementById('noFaceWarning');
+        if (noFaceWarning) noFaceWarning.classList.add('hidden');
         document.body.style.border = '';
         document.body.style.boxSizing = '';
-    }, 3000);
+    }, 4000);
 }
 
 function recordTabViolation() {
@@ -588,15 +592,16 @@ function recordTabViolation() {
             
             tabViolations = data.tab_violations;
             document.getElementById('tabViolations').textContent = tabViolations;
-            document.getElementById('tabWarning').style.display = 'block';
             
-            // Update warning message based on violation count
-            const warningElement = document.getElementById('tabWarning');
+            // Show toast with violation warning
+            let toastMessage = '';
             if (tabViolations === 1) {
-                warningElement.innerHTML = '⚠️ <strong>First Tab Switch!</strong> Tab switch detected. One more violation will terminate the interview.';
+                toastMessage = '⚠️ First Tab Switch! Tab switch detected. One more violation will terminate the interview.';
             } else if (tabViolations >= 2) {
-                warningElement.innerHTML = '❌ <strong>Interview Terminated!</strong> Multiple tab switches detected.';
+                toastMessage = '❌ Interview Terminated! Multiple tab switches detected.';
             }
+            
+            showToast(toastMessage, 'warning', 3000);
             
             console.log(`DEBUG: Tab violations count: ${tabViolations}, Terminated: ${data.terminated}`);
             
@@ -607,26 +612,29 @@ function recordTabViolation() {
         })
         .catch(err => console.error('Error recording tab violation:', err));
     });
-    
-    // Hide warning and remove borders after 3 seconds
-    setTimeout(() => {
-        document.getElementById('tabWarning').style.display = 'none';
-        document.body.style.border = '';
-        document.body.style.boxSizing = '';
-    }, 3000);
 }
 
 // ---------------- INTERVIEW TERMINATION ----------------
 function endInterviewDueToTimeout() {
     stopInterviewTimer();
-    alert('Interview time expired! The interview will now end.');
-    window.location.href = '/result';
+    if (typeof stopCameraMonitoring === 'function') {
+        stopCameraMonitoring();
+    }
+    showToast('Interview time expired! The interview will now end.', 'info', 2000);
+    setTimeout(() => {
+        window.location.href = '/result';
+    }, 2000);
 }
 
 function endInterviewDueToViolation(reason) {
     stopInterviewTimer();
-    alert(`Interview terminated due to: ${reason}`);
-    window.location.href = '/result';
+    if (typeof stopCameraMonitoring === 'function') {
+        stopCameraMonitoring();
+    }
+    showToast(`Interview terminated due to: ${reason}`, 'error', 2000);
+    setTimeout(() => {
+        window.location.href = '/result';
+    }, 2000);
 }
 
 // Tab switch detection
@@ -703,6 +711,11 @@ async function startInterview() {
     
     // Start interview timer
     startInterviewTimer();
+
+    // Initialize camera monitoring when interview starts
+    if (typeof initCameraMonitoring === 'function') {
+        initCameraMonitoring();
+    }
 
     // Enable tab monitoring after interview starts
     if (typeof enableTabMonitoring === 'function') {
@@ -1076,6 +1089,10 @@ function speak(text) {
 async function endInterview() {
     try {
         console.log("DEBUG: Ending interview...");
+        // Stop camera monitoring
+        if (typeof stopCameraMonitoring === 'function') {
+            stopCameraMonitoring();
+        }
         
         const res = await fetch("/end", { method: "POST" });
         const data = await res.json();

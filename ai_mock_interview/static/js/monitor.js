@@ -27,6 +27,7 @@ cameraBox.style.background = "rgba(0,0,0,0.35)";
 cameraBox.style.overflow = "hidden";
 cameraBox.style.zIndex = "9999";
 cameraBox.style.boxShadow = "0 6px 18px rgba(0,0,0,0.35)";
+cameraBox.style.display = "none"; // Hidden until camera is granted
 
 video.muted = true;
 video.playsInline = true;
@@ -158,78 +159,115 @@ function addLipSyncChart() {
     }
 }
 
-navigator.mediaDevices
-    .getUserMedia({ video: true })
-    .then(stream => {
-        video.srcObject = stream;
+// Store interval ID for camera monitoring so we can stop it later
+let cameraMonitoringInterval = null;
+
+// Initialize camera monitoring - called only when interview starts
+function initCameraMonitoring() {
+    // Show the camera preview box
+    cameraBox.style.display = 'block';
+
+    // Reuse existing stream if already granted during setup page
+    if (window._cameraStream && window._cameraStream.active) {
+        video.srcObject = window._cameraStream;
         video.play();
-    })
-    .catch(() => {
-        const msg = document.createElement("div");
-        msg.textContent = "Camera permission denied";
-        msg.style.padding = "8px";
-        msg.style.color = "white";
-        msg.style.fontSize = "12px";
-        cameraBox.appendChild(msg);
-    });
+        startCameraMonitoring();
+        return;
+    }
 
-setInterval(() => {
-    // Face detection requires a ready stream.
-    if (!video.videoWidth || !video.videoHeight) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-
-    ctx.drawImage(video, 0, 0);
-    const image = canvas.toDataURL("image/jpeg");
-
-    fetch("/monitor", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image }),
-    })
-        .then(res => res.json())
-        .then(data => {
-            if (data.terminate) {
-                alert("Interview terminated: " + data.reason);
-                // Redirect to result page instead of reloading
-                window.location.href = '/result';
-                return;
-            }
-
-            // Track face detection violations
-            if (data.faces > 1) {
-                // Multiple faces detected - record violation
-                if (typeof recordMultipleFaceViolation === 'function') {
-                    console.log("DEBUG: Multiple faces detected - calling recordMultipleFaceViolation");
-                    recordMultipleFaceViolation();
-                }
-            } else if (data.faces === 0 || !data.faces) {
-                // No faces detected or camera hidden - this is a violation
-                if (typeof recordNoFaceViolation === 'function') {
-                    console.log("DEBUG: No faces detected - calling recordNoFaceViolation");
-                    recordNoFaceViolation();
-                }
-            }
-            // 1 face = normal, continue monitoring
+    // Otherwise request camera access fresh
+    navigator.mediaDevices
+        .getUserMedia({ video: true })
+        .then(stream => {
+            window._cameraStream = stream;
+            video.srcObject = stream;
+            video.play();
             
-            // Update lip sync chart with simulated data
-            if (document.getElementById("lipSyncChartContainer")) {
-                // Simulate lip sync data for visualization
-                const similarity = 0.7 + Math.random() * 0.3; // Simulated varying sync quality
-                const audioLevel = 0.05 + Math.random() * 0.1;
-                const lipDistance = 5 + Math.random() * 3;
-                
-                updateLipSyncChart(similarity, audioLevel, lipDistance);
-                
-                // Show/hide chart based on recording state
-                const chartContainer = document.getElementById("lipSyncChartContainer");
-                if (chartContainer) {
-                    chartContainer.style.display = "block";
-                }
-            }
+            // Start face detection monitoring interval
+            startCameraMonitoring();
+        })
+        .catch(() => {
+            const msg = document.createElement("div");
+            msg.textContent = "Camera permission denied";
+            msg.style.padding = "8px";
+            msg.style.color = "white";
+            msg.style.fontSize = "12px";
+            cameraBox.appendChild(msg);
         });
-}, 3000);
+}
+
+// Start the continuous camera monitoring
+function startCameraMonitoring() {
+    cameraMonitoringInterval = setInterval(() => {
+        // Face detection requires a ready stream.
+        if (!video.videoWidth || !video.videoHeight) return;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        ctx.drawImage(video, 0, 0);
+        const image = canvas.toDataURL("image/jpeg");
+
+        fetch("/monitor", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image }),
+        })
+            .then(res => res.json())
+            .then(data => {
+                if (data.terminate) {
+                    alert("Interview terminated: " + data.reason);
+                    // Redirect to result page instead of reloading
+                    window.location.href = '/result';
+                    return;
+                }
+
+                // Track face detection violations
+                if (data.faces > 1) {
+                    // Multiple faces detected - record violation
+                    if (typeof recordMultipleFaceViolation === 'function') {
+                        console.log("DEBUG: Multiple faces detected - calling recordMultipleFaceViolation");
+                        recordMultipleFaceViolation();
+                    }
+                } else if (data.faces === 0 || !data.faces) {
+                    // No faces detected or camera hidden - this is a violation
+                    if (typeof recordNoFaceViolation === 'function') {
+                        console.log("DEBUG: No faces detected - calling recordNoFaceViolation");
+                        recordNoFaceViolation();
+                    }
+                }
+                // 1 face = normal, continue monitoring
+                
+                // Update lip sync chart with simulated data
+                if (document.getElementById("lipSyncChartContainer")) {
+                    // Simulate lip sync data for visualization
+                    const similarity = 0.7 + Math.random() * 0.3; // Simulated varying sync quality
+                    const audioLevel = 0.05 + Math.random() * 0.1;
+                    const lipDistance = 5 + Math.random() * 3;
+                    
+                    updateLipSyncChart(similarity, audioLevel, lipDistance);
+                    
+                    // Show/hide chart based on recording state
+                    const chartContainer = document.getElementById("lipSyncChartContainer");
+                    if (chartContainer) {
+                        chartContainer.style.display = "block";
+                    }
+                }
+            });
+    }, 3000);
+}
+
+// Stop camera monitoring when interview ends
+function stopCameraMonitoring() {
+    if (cameraMonitoringInterval) {
+        clearInterval(cameraMonitoringInterval);
+        cameraMonitoringInterval = null;
+    }
+    // Stop video stream
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(track => track.stop());
+    }
+}
 
 let tabWarnings = 0;
 let interviewStarted = false;
@@ -238,36 +276,4 @@ let interviewStarted = false;
 function enableTabMonitoring() {
     interviewStarted = true;
     addLipSyncChart(); // Show lip sync chart when interview starts
-}
-
-document.addEventListener("visibilitychange", () => {
-    // Only monitor tab switching if interview has started
-    if (!interviewStarted) return;
-    
-    if (document.hidden) {
-        tabWarnings++;
-
-        // Shake screen briefly when tab switch is detected.
-        try {
-            document.body.animate(
-                [
-                    { transform: "translateX(0px)" },
-                    { transform: "translateX(-4px)" },
-                    { transform: "translateX(4px)" },
-                    { transform: "translateX(-2px)" },
-                    { transform: "translateX(2px)" },
-                    { transform: "translateX(0px)" },
-                ],
-                { duration: 320, iterations: 1, easing: "ease-in-out" }
-            );
-        } catch (e) {
-            // Ignore animation failures.
-        }
-
-        alert("Tab switching detected!");
-        if (tabWarnings >= 5) {
-            alert("Interview terminated due to tab switching");
-            location.reload();
-        }
-    }
-});
+}

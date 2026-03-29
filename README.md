@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # AI Mock Interview Platform - Version 1.3
 
 ## 🎯 Overview
@@ -327,3 +328,7 @@ For issues and support:
 ---
 
 **Note**: This platform is designed for educational and practice purposes. Always ensure proper consent for video and audio recording during interviews.
+=======
+# Modified-AImockInterview
+Ai Mock interview module
+>>>>>>> 975bc2ef5f9e7b3da607785d8f1748d789d21b1f

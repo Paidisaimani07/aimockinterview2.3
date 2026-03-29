@@ -7,374 +7,686 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        
         * {
-            font-family: 'Inter', sans-serif;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        :root {
+            --primary-orange: #F97316;
+            --dark-orange: #EA580C;
+            --light-orange: #FFEDD5;
+            --bg-light: #FAFAF9;
+            --bg-white: #FFFFFF;
+            --text-dark: #1F2937;
+            --text-gray: #6B7280;
+            --border-light: #E5E7EB;
         }
         
-        .gradient-bg {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        body {
+            background-color: var(--bg-light);
         }
-        
-        .glass-effect {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+
+        .gradient-orange {
+            background: linear-gradient(135deg, var(--primary-orange) 0%, var(--dark-orange) 100%);
         }
-        
-        .hover-scale {
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+        .card-modern {
+            background: var(--bg-white);
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            border: 1px solid var(--border-light);
         }
-        
-        .hover-scale:hover {
+
+        .card-modern:hover {
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
             transform: translateY(-2px);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
         }
-        
-        .pulse-animation {
-            animation: pulse 2s infinite;
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-orange) 0%, var(--dark-orange) 100%);
+            color: white;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
         }
-        
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(249, 115, 22, 0.4);
         }
-        
+
+        .btn-secondary {
+            background: var(--bg-white);
+            color: var(--primary-orange);
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            border: 2px solid var(--primary-orange);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-secondary:hover {
+            background: var(--light-orange);
+        }
+
+        .input-modern {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid var(--border-light);
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: var(--bg-white);
+            color: var(--text-dark);
+        }
+
+        .input-modern:focus {
+            outline: none;
+            border-color: var(--primary-orange);
+            box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+            color: var(--primary-orange);
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .header-section {
+            background: var(--bg-white);
+            border-bottom: 2px solid var(--border-light);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+
+        .progress-ring circle {
+            stroke-dasharray: 157;
+            stroke-dashoffset: 0;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+
+        .icon-box {
+            width: 56px;
+            height: 56px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .icon-orange {
+            background: var(--light-orange);
+            color: var(--primary-orange);
+        }
+
+        .icon-green {
+            background: #D1FAE5;
+            color: #047857;
+        }
+
+        .icon-red {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+
+        .instruction-card {
+            background: var(--bg-white);
+            border: 2px solid var(--border-light);
+            border-left: 4px solid var(--primary-orange);
+            padding: 20px;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .instruction-card:hover {
+            border-left-color: var(--dark-orange);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .instruction-card h3 {
+            color: var(--primary-orange);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .instruction-card ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .instruction-card li {
+            color: var(--text-gray);
+            margin-bottom: 8px;
+            padding-left: 20px;
+            position: relative;
+            font-size: 14px;
+        }
+
+        .instruction-card li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: var(--primary-orange);
+            font-weight: bold;
+        }
+
+        .warning-alert {
+            background: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            color: #92400E;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--light-orange) 0%, rgba(249, 115, 22, 0.1) 100%);
+            border: 2px solid var(--light-orange);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--primary-orange);
+            margin: 8px 0;
+        }
+
+        .stat-label {
+            color: var(--text-gray);
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
         .recording-pulse {
-            animation: recording-pulse 1.5s infinite;
+            animation: pulse-recording 1.5s infinite;
         }
-        
-        @keyframes recording-pulse {
-            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+
+        @keyframes pulse-recording {
+            0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(249, 115, 22, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
         }
-        
+
         .violation-alert {
             animation: violation-shake 0.5s;
         }
-        
+
         @keyframes violation-shake {
             0%, 100% { transform: translateX(0); }
             25% { transform: translateX(-10px); }
             75% { transform: translateX(10px); }
         }
-        
-        .progress-ring {
-            transform: rotate(-90deg);
+
+        /* Toast Notification System */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            max-width: 400px;
         }
-        
-        .fade-in {
-            animation: fadeIn 0.5s ease-in;
+
+        .toast {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: toastSlideIn 0.3s ease-out, toastSlideOut 0.3s ease-out 4.7s forwards;
+            border-left: 4px solid var(--primary-orange);
         }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
+
+        .toast.success {
+            border-left-color: #10b981;
         }
-        
-        .loading-spinner {
-            display: inline-block;
-            animation: spin 1s linear infinite;
-            color: #8b5cf6;
-            font-size: 16px;
-            margin-top: 10px;
+
+        .toast.error {
+            border-left-color: #ef4444;
         }
-        
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+
+        .toast.warning {
+            border-left-color: #f59e0b;
+        }
+
+        .toast.info {
+            border-left-color: var(--primary-orange);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .toast.success .toast-icon {
+            color: #10b981;
+        }
+
+        .toast.error .toast-icon {
+            color: #ef4444;
+        }
+
+        .toast.warning .toast-icon {
+            color: #f59e0b;
+        }
+
+        .toast.info .toast-icon {
+            color: var(--primary-orange);
+        }
+
+        .toast-message {
+            flex: 1;
+            color: var(--text-dark);
+            font-weight: 500;
+        }
+
+        .toast-close {
+            background: none;
+            border: none;
+            color: var(--text-gray);
+            cursor: pointer;
+            font-size: 20px;
+            padding: 0;
+            display: flex;
+            align-items: center;
+        }
+
+        .toast-close:hover {
+            color: var(--text-dark);
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes toastSlideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        @media (max-width: 640px) {
+            .toast-container {
+                left: 10px;
+                right: 10px;
+                max-width: none;
+            }
+
+            .toast {
+                flex-direction: column;
+                text-align: center;
+            }
         }
     </style>
 </head>
-<body class="gradient-bg min-h-screen">
-    <!-- INSTRUCTIONS SECTION -->
-    <div id="instructions" class="min-h-screen flex items-center justify-center p-4">
-        <div class="glass-effect rounded-2xl p-8 max-w-5xl w-full hover-scale">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full mb-4">
-                    <i class="fas fa-info-circle text-white text-3xl"></i>
-                </div>
-                <h1 class="text-4xl font-bold text-gray-800 mb-2">Interview Instructions</h1>
-                <p class="text-gray-600">Please read these guidelines carefully before starting</p>
-            </div>
-            
-            <div class="space-y-6">
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-                    <h3 class="font-semibold text-blue-800 mb-2">
-                        <i class="fas fa-video mr-2"></i>Camera Requirements
-                    </h3>
-                    <div class="flex items-start space-x-4">
-                        <ul class="text-blue-700 space-y-1 text-sm flex-1">
-                            <li>• Keep your camera on throughout the interview</li>
-                            <li>• Ensure good lighting and clear visibility</li>
-                            <li>• Only one person should be visible</li>
-                            <li>• Don't cover or hide your camera</li>
-                        </ul>
-                        <div class="w-20 h-20 rounded-lg shadow-md bg-blue-100 flex items-center justify-center">
-                            <i class="fas fa-video text-blue-500 text-2xl"></i>
-                        </div>
+<body class="bg-slate-50">
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- HEADER -->
+    <div class="header-section">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="icon-box icon-orange">
+                        <i class="fas fa-microphone"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-2xl font-bold text-gray-900">Interview AI</h1>
+                        <p class="text-sm text-gray-500">Professional Mock Interview Platform</p>
                     </div>
                 </div>
-                
-                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded">
-                    <h3 class="font-semibold text-green-800 mb-2">
-                        <i class="fas fa-desktop mr-2"></i>Browser & Tab Rules
-                    </h3>
-                    <div class="flex items-start space-x-4">
-                        <ul class="text-green-700 space-y-1 text-sm flex-1">
-                            <li>• Stay on this interview tab at all times</li>
-                            <li>• No switching to other tabs or windows</li>
-                            <li>• Don't open new browser windows</li>
-                            <li>• Focus solely on the interview</li>
-                        </ul>
-                        <div class="w-20 h-20 rounded-lg shadow-md bg-green-100 flex items-center justify-center">
-                            <i class="fas fa-desktop text-green-500 text-2xl"></i>
-                        </div>
-                    </div>
+                <div class="hidden md:flex items-center gap-2">
+                    <span class="text-sm text-gray-600">Powered by</span>
+                    <span class="text-sm font-bold text-orange-600">Advanced AI</span>
                 </div>
-                
-                <div class="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
-                    <h3 class="font-semibold text-orange-800 mb-2">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>Violation Policy
-                    </h3>
-                    <div class="flex items-start space-x-4">
-                        <ul class="text-orange-700 space-y-1 text-sm flex-1">
-                            <li>• 2 violations of any type will terminate the interview</li>
-                            <li>• Multiple faces detected = violation (2 max)</li>
-                            <li>• No face detected = violation (5 max)</li>
-                            <li>• Tab switching = violation (2 max)</li>
-                            <li>• First violation = warning, second = termination</li>
-                        </ul>
-                        <div class="w-20 h-20 rounded-lg shadow-md bg-orange-100 flex items-center justify-center">
-                            <i class="fas fa-exclamation-triangle text-orange-500 text-2xl"></i>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
-                    <h3 class="font-semibold text-purple-800 mb-2">
-                        <i class="fas fa-microphone mr-2"></i>Recording Guidelines
-                    </h3>
-                    <div class="flex items-start space-x-4">
-                        <ul class="text-purple-700 space-y-1 text-sm flex-1">
-                            <li>• Speak clearly and concisely</li>
-                            <li>• Answer each question completely</li>
-                            <li>• Use the recording controls properly</li>
-                            <li>• Interview duration: 20 minutes</li>
-                        </ul>
-                        <div class="w-20 h-20 rounded-lg shadow-md bg-purple-100 flex items-center justify-center">
-                            <i class="fas fa-microphone text-purple-500 text-2xl"></i>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 border-l-4 border-gray-500 p-4 rounded">
-                    <h3 class="font-semibold text-gray-800 mb-2">
-                        <i class="fas fa-laptop mr-2"></i>Technical Requirements
-                    </h3>
-                    <div class="flex items-start space-x-4">
-                        <ul class="text-gray-700 space-y-1 text-sm flex-1">
-                            <li>• Stable internet connection</li>
-                            <li>• Modern browser (Chrome, Firefox, Safari)</li>
-                            <li>• Working microphone and camera</li>
-                            <li>• Allow browser permissions when prompted</li>
-                        </ul>
-                        <div class="w-20 h-20 rounded-lg shadow-md bg-gray-100 flex items-center justify-center">
-                            <i class="fas fa-laptop text-gray-500 text-2xl"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="mt-8 flex justify-center">
-                <button onclick="showSetup()" 
-                        class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-8 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105">
-                    <i class="fas fa-arrow-right mr-2"></i>I Understand - Continue
-                </button>
             </div>
         </div>
     </div>
 
-    <!-- SETUP SECTION -->
-    <div id="setup" class="hidden min-h-screen flex items-center justify-center p-4">
-        <div class="glass-effect rounded-2xl p-8 max-w-5xl w-full hover-scale">
-            <div class="text-center mb-8">
-                <div class="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full mb-4">
-                    <i class="fas fa-briefcase text-white text-3xl"></i>
+    <!-- INSTRUCTIONS SECTION -->
+    <div id="instructions" class="min-h-screen py-8 px-4">
+        <div class="max-w-4xl mx-auto">
+            <div class="card-modern p-8 fade-in mb-6">
+                <div class="text-center mb-8">
+                    <div class="icon-box icon-orange" style="width: 80px; height: 80px; font-size: 40px; margin: 0 auto 20px;">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Interview Guidelines</h1>
+                    <p class="text-gray-600">Please review these important requirements before starting</p>
                 </div>
-                <h1 class="text-4xl font-bold text-gray-800 mb-2">AI Mock Interview</h1>
-                <p class="text-gray-600">Practice your interview skills with AI-powered feedback</p>
-            </div>
-            
-            <div class="space-y-6">
-                <div class="group">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-user mr-2"></i>Your Name
-                    </label>
-                    <input type="text" id="name" 
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                           placeholder="Enter your full name">
-                </div>
-                
-                <div class="group">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-alt mr-2"></i>Job Description
-                    </label>
-                    <textarea id="jd" rows="4"
-                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200"
-                              placeholder="Paste the complete job description here..."></textarea>
-                </div>
-                
-                <div class="group">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-pdf mr-2"></i>Resume Upload
-                    </label>
-                    <div class="relative">
-                        <input type="file" id="resumeFile" accept=".pdf,.docx" 
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-200 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100">
+
+                <div class="space-y-4 mb-8">
+                    <div class="instruction-card">
+                        <h3><i class="fas fa-video mr-2"></i>Camera & Proctoring</h3>
+                        <ul>
+                            <li>Keep your camera on throughout the entire interview</li>
+                            <li>Ensure good lighting and clear visibility of your face</li>
+                            <li>Only one person should be visible in frame</li>
+                            <li>Your face must be clearly visible at all times</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-card">
+                        <h3><i class="fas fa-window-maximize mr-2"></i>Browser & Tab Rules</h3>
+                        <ul>
+                            <li>Stay on this interview tab at all times</li>
+                            <li>No switching to other tabs or windows</li>
+                            <li>Don't minimize or hide the browser window</li>
+                            <li>All focus must remain on the interview interface</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-card">
+                        <h3><i class="fas fa-exclamation-triangle mr-2"></i>Violation Policy</h3>
+                        <ul>
+                            <li><strong>Multiple Faces:</strong> Maximum 2 violations allowed</li>
+                            <li><strong>No Face Detected:</strong> Maximum 5 violations allowed</li>
+                            <li><strong>Tab Switching:</strong> Maximum 2 violations allowed</li>
+                            <li>2nd violation of any type will result in automatic termination</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-card">
+                        <h3><i class="fas fa-microphone mr-2"></i>Recording Best Practices</h3>
+                        <ul>
+                            <li>Speak clearly and maintain a professional tone</li>
+                            <li>Answer each question completely and thoughtfully</li>
+                            <li>Take your time – there's no rush</li>
+                            <li>Total interview duration: approximately 20 minutes</li>
+                        </ul>
+                    </div>
+
+                    <div class="instruction-card">
+                        <h3><i class="fas fa-laptop mr-2"></i>Technical Requirements</h3>
+                        <ul>
+                            <li>Stable internet connection (minimum 2 Mbps recommended)</li>
+                            <li>Modern browser (Chrome, Firefox, Safari, or Edge)</li>
+                            <li>Working microphone and camera</li>
+                        </ul>
                     </div>
                 </div>
-                
-                <button onclick="startInterview()" 
-                        class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-6 rounded-lg font-semibold hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-105">
-                    <i class="fas fa-play mr-2"></i>Start Interview
-                </button>
+
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-12 p-4 mb-8">
+                    <p class="text-blue-900 text-sm">
+                        <i class="fas fa-info-circle mr-2 text-blue-600"></i>
+                        <strong>Note:</strong> By proceeding, you acknowledge that you have read and understood all guidelines above.
+                    </p>
+                </div>
+
+                <div class="flex gap-4 justify-center">
+                    <button onclick="showSetup()" class="btn-primary">
+                        <i class="fas fa-arrow-right mr-2"></i>I Understand - Continue
+                    </button>
+                </div>
+            </div>
+        </div>
+</div>
+
+    <!-- SETUP SECTION -->
+    <div id="setup" class="hidden min-h-screen py-8 px-4">
+        <div class="max-w-2xl mx-auto">
+            <div class="card-modern p-8 fade-in">
+                <div class="text-center mb-8">
+                    <div class="icon-box icon-orange" style="width: 80px; height: 80px; font-size: 40px; margin: 0 auto 20px;">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <h1 class="text-3xl font-bold text-gray-900 mb-2">Let's Get Started</h1>
+                    <p class="text-gray-600">Provide your information and job details to begin your interview</p>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-600 text-gray-900 mb-2">
+                            <i class="fas fa-user mr-2 text-orange-600"></i>Full Name
+                        </label>
+                        <input type="text" id="name" class="input-modern" placeholder="Enter your full name">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-600 text-gray-900 mb-2">
+                            <i class="fas fa-file-alt mr-2 text-orange-600"></i>Job Description
+                        </label>
+                        <textarea id="jd" rows="5" class="input-modern resize-none" placeholder="Paste the complete job description here..."></textarea>
+                        <p class="text-xs text-gray-500 mt-1">This helps tailor interview questions to the role</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-600 text-gray-900 mb-2">
+                            <i class="fas fa-file-pdf mr-2 text-orange-600"></i>Resume Upload
+                        </label>
+                        <div class="border-2 border-dashed border-gray-300 rounded-12 p-6 text-center cursor-pointer hover:border-orange-600 transition-colors" onclick="document.getElementById('resumeFile').click();">
+                            <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                            <p class="text-sm font-500 text-gray-900">Click to upload your resume</p>
+                            <p class="text-xs text-gray-500">Supported formats: PDF, DOCX (Max 5MB)</p>
+                            <input type="file" id="resumeFile" accept=".pdf,.docx" class="hidden">
+                        </div>
+                        <div id="fileNameDisplay" class="mt-2 text-sm text-green-600 font-500"></div>
+                    </div>
+
+                    <div class="bg-orange-50 border-l-4 border-orange-600 p-4 rounded-8">
+                        <p class="text-sm text-orange-900">
+                            <i class="fas fa-camera mr-2"></i>
+                            <strong>Permissions Required:</strong> To proceed with the interview, we need access to your camera and microphone. Click the buttons below to grant permissions.
+                        </p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button onclick="requestCameraPermission()" class="w-full py-3 px-4 rounded-10 border-2 border-orange-600 bg-white text-orange-600 font-600 hover:bg-orange-50 transition-colors" id="cameraBtn">
+                            <i class="fas fa-camera mr-2"></i>
+                            <span id="cameraStatus">Grant Camera Permission</span>
+                            <i class="fas fa-check ml-2 text-green-600 hidden" id="cameraCheck"></i>
+                        </button>
+
+                        <button onclick="requestMicrophonePermission()" class="w-full py-3 px-4 rounded-10 border-2 border-orange-600 bg-white text-orange-600 font-600 hover:bg-orange-50 transition-colors" id="microphoneBtn">
+                            <i class="fas fa-microphone mr-2"></i>
+                            <span id="microphoneStatus">Grant Microphone Permission</span>
+                            <i class="fas fa-check ml-2 text-green-600 hidden" id="microphoneCheck"></i>
+                        </button>
+                    </div>
+
+                    <div class="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-8">
+                        <p class="text-sm text-blue-900">
+                            <i class="fas fa-lock mr-2"></i>
+                            <strong>Your privacy is protected:</strong> All data is encrypted and stored securely. We don't share your information.
+                        </p>
+                    </div>
+
+                    <button onclick="startInterview()" class="btn-primary w-full py-3 text-base" id="startBtn" disabled style="opacity: 0.6; cursor: not-allowed;">
+                        <i class="fas fa-play mr-2"></i>Start Interview
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- INTERVIEW SECTION -->
-    <div id="interview" class="hidden min-h-screen p-4">
-        <div class="max-w-4xl mx-auto">
-            <!-- HEADER WITH TIMER AND VIOLATIONS -->
-            <div class="glass-effect rounded-2xl p-6 mb-6 fade-in">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <!-- TIMER -->
-                    <div class="text-center">
+    <div id="interview" class="hidden min-h-screen py-6 px-4">
+        <div class="max-w-5xl mx-auto">
+            <!-- STATUS BAR -->
+            <div class="card-modern p-6 mb-4 fade-in">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <!-- Timer -->
+                    <div class="stat-card">
                         <div class="flex items-center justify-center mb-2">
-                            <svg class="progress-ring" width="60" height="60">
-                                <circle cx="30" cy="30" r="25" stroke="#e5e7eb" stroke-width="4" fill="none"/>
-                                <circle id="progressCircle" cx="30" cy="30" r="25" stroke="#8b5cf6" stroke-width="4" fill="none"
-                                        stroke-dasharray="157" stroke-dashoffset="0" stroke-linecap="round"/>
+                            <svg class="progress-ring w-16 h-16">
+                                <circle cx="32" cy="32" r="28" stroke="#E5E7EB" stroke-width="3" fill="none"/>
+                                <circle id="progressCircle" cx="32" cy="32" r="28" stroke="var(--primary-orange)" stroke-width="3" fill="none"
+                                        stroke-dasharray="176" stroke-dashoffset="0" stroke-linecap="round"/>
                             </svg>
-                            <div class="absolute flex items-center justify-center w-14 h-14">
-                                <span id="timer" class="text-lg font-bold text-gray-800">20:00</span>
+                            <div class="absolute">
+                                <span id="timer" class="font-bold text-lg text-orange-600">20:00</span>
                             </div>
                         </div>
-                        <p class="text-sm text-gray-600">Time Remaining</p>
+                        <p class="stat-label">Time Remaining</p>
                     </div>
-                    
-                    <!-- MATCH INFO -->
-                    <div class="text-center">
-                        <div class="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-2">
-                            <i class="fas fa-chart-line text-green-600 text-2xl"></i>
-                        </div>
-                        <p class="text-sm text-gray-600">Resume-JD Match</p>
-                        <p id="matchPercentage" class="text-2xl font-bold text-green-600">-</p>
+
+                    <!-- Match -->
+                    <div class="stat-card">
+                        <i class="fas fa-chart-line text-2xl text-orange-600 mb-2"></i>
+                        <p id="matchPercentage" class="stat-number">--</p>
+                        <p class="stat-label">Resume Match</p>
                     </div>
-                    
-                    <!-- VIOLATION STATUS -->
-                    <div class="text-center">
-                        <div class="space-y-2">
-                            <div class="flex items-center justify-center space-x-2">
-                                <i class="fas fa-users text-orange-500"></i>
-                                <span class="text-sm">Multiple Faces: <span id="multipleFaceViolations" class="font-bold">0</span>/2</span>
-                            </div>
-                            <div class="flex items-center justify-center space-x-2">
-                                <i class="fas fa-user-slash text-red-500"></i>
-                                <span class="text-sm">No Face: <span id="noFaceViolations" class="font-bold">0</span>/5</span>
-                            </div>
-                            <div class="flex items-center justify-center space-x-2">
-                                <i class="fas fa-window-restore text-blue-500"></i>
-                                <span class="text-sm">Tab Switch: <span id="tabViolations" class="font-bold">0</span>/2</span>
-                            </div>
-                        </div>
+
+                    <!-- Face Violations (multiple) -->
+                    <div class="stat-card">
+                        <i class="fas fa-users text-2xl text-orange-600 mb-2"></i>
+                        <p class="text-sm text-gray-700"><span id="multipleFaceViolations" class="font-bold text-orange-600">0</span>/2</p>
+                        <p class="stat-label">Multi-Face</p>
                     </div>
-                </div>
-                
-                <!-- VIOLATION WARNINGS -->
-                <div class="mt-4 space-y-2">
-                    <div id="multipleFaceWarning" class="hidden bg-orange-50 border border-orange-200 text-orange-800 px-4 py-2 rounded-lg text-sm violation-alert">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>Multiple faces detected!
+
+                    <!-- No Face Violations -->
+                    <div class="stat-card">
+                        <i class="fas fa-eye-slash text-2xl text-orange-600 mb-2"></i>
+                        <p class="text-sm text-gray-700"><span id="noFaceViolations" class="font-bold text-orange-600">0</span>/5</p>
+                        <p class="stat-label">No Face</p>
                     </div>
-                    <div id="noFaceWarning" class="hidden bg-red-50 border border-red-200 text-red-800 px-4 py-2 rounded-lg text-sm violation-alert">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>No face detected!
-                    </div>
-                    <div id="tabWarning" class="hidden bg-blue-50 border border-blue-200 text-blue-800 px-4 py-2 rounded-lg text-sm violation-alert">
-                        <i class="fas fa-exclamation-triangle mr-2"></i>Tab switch detected!
+
+                    <!-- Tab Switches -->
+                    <div class="stat-card">
+                        <i class="fas fa-window-restore text-2xl text-orange-600 mb-2"></i>
+                        <p class="text-sm text-gray-700"><span id="tabViolations" class="font-bold text-orange-600">0</span>/2</p>
+                        <p class="stat-label">Tab Switches</p>
                     </div>
                 </div>
             </div>
-            
-            <!-- QUESTION SECTION -->
-            <div class="glass-effect rounded-2xl p-6 mb-6 fade-in">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mr-4">
-                        <i class="fas fa-question-circle text-purple-600 text-xl"></i>
-                    </div>
-                    <h2 class="text-2xl font-bold text-gray-800">Interview Question</h2>
+
+            <!-- VIOLATION WARNING BANNER -->
+            <div id="noFaceWarning" class="hidden mb-4 fade-in">
+                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg flex items-center gap-3">
+                    <i class="fas fa-exclamation-triangle text-red-500 text-xl flex-shrink-0"></i>
+                    <p id="noFaceWarningText" class="text-red-800 font-semibold text-sm">⚠️ No face detected! Please ensure your face is clearly visible.</p>
                 </div>
-                <div id="question" class="text-lg text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">
+            </div>
+
+
+            <!-- QUESTION CARD -->
+            <div class="card-modern p-8 mb-6 fade-in">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="icon-box icon-orange flex-shrink-0">
+                        <i class="fas fa-question-circle"></i>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Interview Question</h2>
+                        <p class="text-sm text-gray-500">Answer this question to the best of your ability</p>
+                    </div>
+                </div>
+                <div id="question" class="text-lg text-gray-700 leading-relaxed bg-gradient-to-br from-orange-50 to-white p-6 rounded-12 border-2 border-orange-100">
                     Loading question...
                 </div>
             </div>
-            
-            <!-- RECORDING CONTROLS -->
-            <div class="glass-effect rounded-2xl p-6 mb-6 fade-in">
+
+            <!-- RECORDING SECTION -->
+            <div class="card-modern p-8 mb-6 fade-in">
                 <div class="text-center">
+                    <div class="mb-6">
+                        <i class="fas fa-microphone text-4xl text-orange-600 mb-4"></i>
+                        <p class="text-gray-600 font-500">Click the button below to start recording your answer</p>
+                    </div>
                     <div id="recordingControls" class="space-y-4">
-                        <button id="recordBtn" onclick="startListening()" 
-                                class="bg-red-500 hover:bg-red-600 text-white px-8 py-4 rounded-full font-semibold transition-all duration-200 transform hover:scale-105">
-                            <i class="fas fa-microphone mr-2"></i>Start Recording
+                        <button id="recordBtn" onclick="startListening()" class="btn-primary px-12 py-4 text-lg">
+                            <i class="fas fa-circle mr-2"></i>Start Recording
                         </button>
-                        <button id="stopBtn" onclick="stopRecording()" 
-                                class="hidden bg-gray-500 hover:bg-gray-600 text-white px-8 py-4 rounded-full font-semibold transition-all duration-200 transform hover:scale-105 recording-pulse">
+                        <button id="stopBtn" onclick="stopRecording()" class="hidden btn-secondary px-12 py-4 text-lg bg-red-50 text-red-600 border-red-600 recording-pulse">
                             <i class="fas fa-stop mr-2"></i>Stop & Submit
                         </button>
-                        <div id="recordingTimer" class="hidden text-gray-600">
-                            <i class="fas fa-clock mr-2"></i>Recording: <span id="recordingTime">0</span>s
+                        <div id="recordingTimer" class="hidden text-orange-600 font-600">
+                            <i class="fas fa-circle animate-pulse mr-2"></i>Recording: <span id="recordingTime">0</span>s
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- ANSWER SECTION -->
-            <div id="answerSection" class="glass-effect rounded-2xl p-6 mb-6 fade-in hidden">
-                <div class="flex items-center mb-4">
-                    <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
-                        <i class="fas fa-comments text-green-600 text-xl"></i>
+            <div id="answerSection" class="card-modern p-8 mb-6 fade-in hidden">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="icon-box icon-green flex-shrink-0">
+                        <i class="fas fa-comments"></i>
                     </div>
-                    <h3 class="text-xl font-bold text-gray-800">Your Answer</h3>
+                    <div class="flex-1">
+                        <h3 class="text-2xl font-bold text-gray-900 mb-2">Your Answer</h3>
+                        <p class="text-sm text-gray-500">Here's what was transcribed from your recording</p>
+                    </div>
                 </div>
-                <div id="userAnswer" class="text-gray-700 bg-gray-50 p-4 rounded-lg leading-relaxed">
+                <div id="userAnswer" class="text-gray-700 bg-green-50 p-6 rounded-12 border-2 border-green-100 leading-relaxed">
                     Processing your answer...
                 </div>
             </div>
-            
-            <!-- NAVIGATION BUTTONS -->
-            <div class="flex justify-center space-x-4 fade-in">
-                <button onclick="nextQuestion()" id="nextBtn" 
-                        class="hidden bg-green-500 hover:bg-green-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105">
+
+            <!-- NAVIGATION -->
+            <div class="flex justify-center gap-4 fade-in">
+                <button onclick="nextQuestion()" id="nextBtn" class="hidden btn-primary px-8 py-3 text-base">
                     <i class="fas fa-arrow-right mr-2"></i>Next Question
                 </button>
-                <button onclick="endInterview()" 
-                        class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-105">
+                <button onclick="endInterview()" class="btn-secondary px-8 py-3 text-base">
                     <i class="fas fa-stop-circle mr-2"></i>End Interview
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- VIOLATION ALERT OVERLAY -->
-    <div id="violationOverlay" class="hidden fixed inset-0 bg-red-600 bg-opacity-90 z-50 flex items-center justify-center">
-        <div class="text-center text-white pulse-animation">
-            <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
-            <h2 id="violationTitle" class="text-3xl font-bold mb-2">VIOLATION DETECTED</h2>
-            <p id="violationMessage" class="text-xl">Interview integrity compromised</p>
+    <!-- VIOLATION OVERLAY -->
+    <div id="violationOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-16 p-8 text-center max-w-md mx-4">
+            <div class="bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-exclamation-triangle text-2xl text-red-600"></i>
+            </div>
+            <h2 id="violationTitle" class="text-2xl font-bold text-gray-900 mb-2">Interview Terminated</h2>
+            <p id="violationMessage" class="text-gray-600">Interview closed due to policy violation</p>
         </div>
     </div>
 
@@ -384,9 +696,141 @@
     <script>
         function showSetup() {
             document.getElementById('instructions').style.display = 'none';
-            document.getElementById('setup').style.display = 'flex';
-            document.getElementById('setup').classList.add('fade-in');
+            document.getElementById('setup').style.display = 'block';
         }
+
+        // Permission tracking
+        let permissionsGranted = {
+            camera: false,
+            microphone: false
+        };
+
+        // Request camera permission - show live preview immediately
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                
+                // Store stream globally so monitor.js can reuse it
+                window._cameraStream = stream;
+
+                // Show live preview in proctoring camera box
+                const cameraBox = document.getElementById('proctoringCameraBox');
+                if (cameraBox) {
+                    const videoEl = cameraBox.querySelector('video');
+                    if (videoEl) {
+                        videoEl.srcObject = stream;
+                        videoEl.play();
+                    }
+                    cameraBox.style.display = 'block';
+                }
+
+                permissionsGranted.camera = true;
+                updateCameraButton();
+                updateStartButton();
+                showToast('✓ Camera permission granted!', 'success', 3000);
+            } catch (error) {
+                showToast('✗ Camera permission denied. Please enable it to proceed.', 'error', 3000);
+            }
+        }
+
+        // Request microphone permission
+        async function requestMicrophonePermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+                stream.getTracks().forEach(track => track.stop());
+                permissionsGranted.microphone = true;
+                updateMicrophoneButton();
+                updateStartButton();
+                showToast('✓ Microphone permission granted!', 'success', 3000);
+            } catch (error) {
+                showToast('✗ Microphone permission denied. Please enable it to proceed.', 'error', 3000);
+            }
+        }
+
+        // Update camera button UI
+        function updateCameraButton() {
+            const btn = document.getElementById('cameraBtn');
+            const status = document.getElementById('cameraStatus');
+            const check = document.getElementById('cameraCheck');
+            
+            if (permissionsGranted.camera) {
+                btn.style.backgroundColor = '#DBEAFE';
+                btn.style.borderColor = '#0284C7';
+                status.textContent = 'Camera Permission Granted';
+                check.classList.remove('hidden');
+            }
+        }
+
+        // Update microphone button UI
+        function updateMicrophoneButton() {
+            const btn = document.getElementById('microphoneBtn');
+            const status = document.getElementById('microphoneStatus');
+            const check = document.getElementById('microphoneCheck');
+            
+            if (permissionsGranted.microphone) {
+                btn.style.backgroundColor = '#DBEAFE';
+                btn.style.borderColor = '#0284C7';
+                status.textContent = 'Microphone Permission Granted';
+                check.classList.remove('hidden');
+            }
+        }
+
+        // Enable/disable start button
+        function updateStartButton() {
+            const startBtn = document.getElementById('startBtn');
+            if (permissionsGranted.camera && permissionsGranted.microphone) {
+                startBtn.disabled = false;
+                startBtn.style.opacity = '1';
+                startBtn.style.cursor = 'pointer';
+            } else {
+                startBtn.disabled = true;
+                startBtn.style.opacity = '0.6';
+                startBtn.style.cursor = 'not-allowed';
+            }
+        }
+
+        // File upload handler
+        document.getElementById('resumeFile').addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                document.getElementById('fileNameDisplay').textContent = '✓ ' + this.files[0].name + ' uploaded';
+            }
+        });
+
+        // Toast Notification System
+        function showToast(message, type = 'info', duration = 5000) {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const iconMap = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-circle',
+                warning: 'fas fa-exclamation-triangle',
+                info: 'fas fa-info-circle'
+            };
+            
+            toast.innerHTML = `
+                <i class="toast-icon ${iconMap[type] || iconMap['info']}"></i>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            `;
+            
+            container.appendChild(toast);
+            
+            // Auto-remove after duration
+            if (duration > 0) {
+                setTimeout(() => {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, duration);
+            }
+        }
+
+        // Export for use in other scripts
+        window.showToast = showToast;
     </script>
 </body>
 </html>
