@@ -94,49 +94,49 @@ document.addEventListener('DOMContentLoaded', loadHtml2Canvas);
 
 // ---------------- VIOLATION VISUAL FEEDBACK ----------------
 function showViolationAlert(type, message) {
-    // Make entire page red for 2 seconds
-    document.body.style.backgroundColor = '#ff0000';
-    document.body.style.transition = 'background-color 0.3s ease';
+    // Add red border to video element instead of covering entire screen
+    const videoElement = document.querySelector('video');
+    if (videoElement) {
+        videoElement.style.border = '8px solid #ff0000';
+        videoElement.style.boxSizing = 'border-box';
+        videoElement.style.transition = 'border-color 0.3s ease';
+    }
     
-    // Create violation alert overlay
+    // Create small violation alert (not full screen)
     const alertOverlay = document.createElement('div');
     alertOverlay.id = 'violationAlert';
     alertOverlay.style.cssText = `
         position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(255, 0, 0, 0.9);
+        top: 20px;
+        right: 20px;
+        background: rgba(255, 0, 0, 0.95);
         color: white;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
+        padding: 15px 20px;
+        border-radius: 8px;
         z-index: 10000;
         font-family: Arial, sans-serif;
-        animation: pulse 0.5s ease-in-out infinite;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        max-width: 300px;
+        animation: slideIn 0.3s ease-out;
     `;
     
     const icon = type === 'face' ? '👤' : '🔄';
     alertOverlay.innerHTML = `
-        <div style="text-align: center; padding: 20px;">
-            <div style="font-size: 72px; margin-bottom: 20px;">${icon}</div>
-            <h1 style="font-size: 36px; margin: 0 0 10px 0;">VIOLATION DETECTED!</h1>
-            <h2 style="font-size: 24px; margin: 0 0 20px 0;">${message}</h2>
-            <div style="font-size: 18px; opacity: 0.9;">
-                This incident has been recorded and will be reported.
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="font-size: 24px;">${icon}</div>
+            <div>
+                <div style="font-weight: bold; font-size: 14px; margin-bottom: 2px;">VIOLATION DETECTED!</div>
+                <div style="font-size: 12px; opacity: 0.9;">${message}</div>
             </div>
         </div>
     `;
     
-    // Add pulse animation
+    // Add slide-in animation
     const style = document.createElement('style');
     style.textContent = `
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
-            100% { transform: scale(1); }
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
         }
     `;
     document.head.appendChild(style);
@@ -145,7 +145,10 @@ function showViolationAlert(type, message) {
     
     // Remove after 2 seconds
     setTimeout(() => {
-        document.body.style.backgroundColor = '';
+        if (videoElement) {
+            videoElement.style.border = '';
+            videoElement.style.transition = '';
+        }
         if (alertOverlay.parentNode) {
             alertOverlay.remove();
         }
@@ -447,10 +450,6 @@ function recordMultipleFaceViolation() {
     }
     lastViolationTime = now;
     
-    // Add red borders to page for multiple face violation
-    document.body.style.border = '8px solid #ff0000';
-    document.body.style.boxSizing = 'border-box';
-    
     // Show specific visual alert for multiple face violation
     showViolationAlert('face', 'Multiple Faces Detected! More than one person detected.');
     
@@ -498,10 +497,6 @@ function recordNoFaceViolation() {
         return;
     }
     lastViolationTime = now;
-    
-    // Add red borders to page for no face violation
-    document.body.style.border = '8px solid #ff0000';
-    document.body.style.boxSizing = 'border-box';
     
     // Show specific visual alert for no face violation
     showViolationAlert('face', 'No Face Detected! Camera hidden or covered.');
@@ -552,12 +547,10 @@ function recordNoFaceViolation() {
         .catch(err => console.error('Error recording no face violation:', err));
     });
     
-    // Hide warning banner and remove borders after 4 seconds
+    // Hide warning banner after 4 seconds
     setTimeout(() => {
         const noFaceWarning = document.getElementById('noFaceWarning');
         if (noFaceWarning) noFaceWarning.classList.add('hidden');
-        document.body.style.border = '';
-        document.body.style.boxSizing = '';
     }, 4000);
 }
 
@@ -661,8 +654,20 @@ async function startInterview() {
     const jd = document.getElementById("jd").value;
     const resumeFile = document.getElementById("resumeFile").files[0];
 
+    // Check file size (5MB limit)
+    if (resumeFile && resumeFile.size > 5 * 1024 * 1024) {
+        // Change file display to red when showing error toast
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const fileSizeMB = (resumeFile.size / (1024 * 1024)).toFixed(2);
+        fileNameDisplay.className = 'mt-2 text-sm text-red-600 font-500';
+        fileNameDisplay.textContent = ' ' + resumeFile.name + ' (' + fileSizeMB + 'MB) - File size exceeds 5MB limit';
+        
+        showToast('File size limit exceeded! Maximum file size is 5MB', 'error', 3000);
+        return;
+    }
+
     if (!jd || !resumeFile) {
-        alert("Fill all fields!");
+        showToast('Please fill all required fields (Name, Job Description, and Resume)', 'error', 3000);
         return;
     }
 
@@ -735,58 +740,107 @@ async function startInterview() {
     // Speak the question
     speak(currentQuestion);
 }
+
 // ---------------- RECORD AUDIO ----------------
 async function startListening() {
-    if (!interviewActive) return;
-    
-    // Start recording animation
-    showRecordingGif();
-    
-    // Hide start button, show stop button
-    document.getElementById('recordBtn').style.display = 'none';
-    document.getElementById('stopBtn').style.display = 'inline-block';
-    document.getElementById('recordingTimer').style.display = 'block';
-    
-    // Start recording timer
-    recordingStartTime = Date.now();
-    recordingTimer = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
-        document.getElementById('recordingTime').textContent = elapsed;
-    }, 1000);
-    
-    // Start audio recording
-    navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            analyser = audioContext.createAnalyser();
-            microphone = audioContext.createMediaStreamSource(stream);
-            microphone.connect(analyser);
+    try {
+        // Request microphone access
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Initialize audio context and analyser for silence detection
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        analyser = audioContext.createAnalyser();
+        microphone = audioContext.createMediaStreamSource(stream);
+        microphone.connect(analyser);
+        analyser.fftSize = 256;
+        
+        // Initialize media recorder
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+        
+        mediaRecorder.onstop = () => {
+            processRecording();
+        };
+        
+        // Start recording
+        mediaRecorder.start();
+        isRecording = true;
+        recordingStartTime = Date.now();
+        
+        // Update UI
+        document.getElementById('recordBtn').classList.add('hidden');
+        document.getElementById('stopBtn').classList.remove('hidden');
+        document.getElementById('recordingTimer').classList.remove('hidden');
+        
+        // Start timers and detection
+        startTimer();
+        startSilenceDetection();
+        
+        // Create or update recording GIF overlay
+        let recordingOverlay = document.getElementById('recordingOverlay');
+        
+        if (!recordingOverlay) {
+            recordingOverlay = document.createElement('div');
+            recordingOverlay.id = 'recordingOverlay';
+            recordingOverlay.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 9999;
+                background: rgba(0, 0, 0, 0.8);
+                border-radius: 15px;
+                padding: 15px;
+                text-align: center;
+                color: white;
+                font-weight: bold;
+                font-size: 14px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.3s ease-in;
+                min-width: 150px;
+            `;
             
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks = [];
+            // Add recording GIF (using your specific GIF)
+            const recordingGif = document.createElement('img');
+            recordingGif.src = '/static/images/42787621ed6d40f0c30f0ae423fc572c.gif';
+            recordingGif.alt = 'Recording...';
+            recordingGif.style.cssText = `
+                width: 50px;
+                height: 50px;
+                margin-bottom: 8px;
+                border-radius: 50%;
+                object-fit: cover;
+                border: 2px solid #ff0000;
+                box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+            `;
             
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
+            // Add recording text
+            const recordingText = document.createElement('div');
+            recordingText.textContent = 'Recording...';
+            recordingText.style.cssText = `
+                font-size: 12px;
+                margin-top: 5px;
+                animation: pulse 1.5s infinite;
+            `;
             
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
-                const audioUrl = URL.createObjectURL(audioBlob);
-                
-                // Hide recording animation
-                hideRecordingGif();
-                
-                // Transcribe audio
-                transcribeAudio(audioUrl);
-            };
+            recordingOverlay.appendChild(recordingGif);
+            recordingOverlay.appendChild(recordingText);
             
-            mediaRecorder.start();
-            isRecording = true;
-        })
-        .catch(err => {
-            console.error('Error accessing microphone:', err);
-            alert('Please allow microphone access to record your answer.');
-        });
+            document.body.appendChild(recordingOverlay);
+        }
+        
+        console.log("Recording started successfully");
+        
+    } catch (error) {
+        console.error("Error accessing microphone:", error);
+        alert("Unable to access microphone. Please check your browser permissions and try again.");
+    }
 }
 
 function showRecordingGif() {
@@ -882,14 +936,26 @@ function cleanupRecording() {
         audioContext.close();
     }
     
-    // Reset UI
-    document.getElementById("recordBtn").style.display = "inline-block";
-    document.getElementById("stopBtn").style.display = "none";
-    document.getElementById("recordingTimer").style.display = "none";
+    // Reset UI - use correct element IDs and classes
+    document.getElementById('recordBtn').classList.remove('hidden');
+    document.getElementById('stopBtn').classList.add('hidden');
+    document.getElementById('recordingTimer').classList.add('hidden');
+    
+    // Reset recording timer display
     const recordingTimerElement = document.getElementById("recordingTimer");
     if (recordingTimerElement) {
-        recordingTimerElement.textContent = "Recording: 0s";
+        recordingTimerElement.innerHTML = '<i class="fas fa-circle animate-pulse mr-2"></i>Recording: <span id="recordingTime">0</span>s';
     }
+    
+    // Hide recording overlay
+    hideRecordingGif();
+    
+    // Reset variables for next recording
+    mediaRecorder = null;
+    audioChunks = [];
+    audioContext = null;
+    analyser = null;
+    microphone = null;
 }
 
 function startTimer() {
@@ -944,7 +1010,15 @@ async function processRecording() {
     const formData = new FormData();
     formData.append("audio", blob, "audio.wav");
 
-    document.getElementById("userAnswer").innerHTML = "<b>You:</b> Processing...";
+    // Show processing indicator and answer section
+    document.getElementById("answerSection").classList.remove("hidden");
+    document.getElementById("userAnswer").innerHTML = `
+        <div style="text-align: center; padding: 20px;">
+            <div class="loading-spinner" style="font-size: 24px;">🔄</div>
+            <p style="margin-top: 15px; color: #8b5cf6; font-weight: 600;">Processing your answer...</p>
+            <p style="margin-top: 5px; color: #6b7280; font-size: 14px;">Converting speech to text and analyzing with AI</p>
+        </div>
+    `;
 
     try {
         const res = await fetch("/next", {
@@ -957,9 +1031,12 @@ async function processRecording() {
 
         if (data.error) {
             document.getElementById("userAnswer").innerHTML = "<b>You:</b> " + data.error;
+            // Show next button even on error so user can try again
+            document.getElementById('nextBtn').classList.remove('hidden');
             return;
         }
 
+        // Display the transcribed answer
         currentAnswer = data.transcript;
         document.getElementById("userAnswer").innerHTML = "<b>You:</b> " + currentAnswer;
 
@@ -974,14 +1051,26 @@ async function processRecording() {
             return;
         }
 
+        // Update to next question
         currentQuestion = data.next_question;
         document.getElementById("question").innerHTML = "<b>AI:</b> " + currentQuestion;
         
         speak(currentQuestion);
         
+        // Show next button for user to continue
+        document.getElementById('nextBtn').classList.remove('hidden');
+        
     } catch (error) {
         console.error("Error processing recording:", error);
-        document.getElementById("userAnswer").innerHTML = "<b>You:</b> Error processing audio. Please try again.";
+        document.getElementById("userAnswer").innerHTML = `
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 24px;">❌</div>
+                <p style="margin-top: 15px; color: #dc2626; font-weight: 600;">Processing Failed</p>
+                <p style="margin-top: 5px; color: #6b7280; font-size: 14px;">Failed to process audio. Please try again.</p>
+            </div>
+        `;
+        // Show next button even on error so user can try again
+        document.getElementById('nextBtn').classList.remove('hidden');
     }
 }
 
@@ -1034,6 +1123,25 @@ async function transcribeAudio(audioUrl) {
             return;
         }
         
+        // File upload handler
+        document.getElementById('resumeFile').addEventListener('change', function(e) {
+            if (this.files.length > 0) {
+                const file = this.files[0];
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                const fileNameDisplay = document.getElementById('fileNameDisplay');
+                
+                if (file.size > 5 * 1024 * 1024) {
+                    // File is over 5MB - show in RED
+                    fileNameDisplay.className = 'mt-2 text-sm text-red-600 font-500';
+                    fileNameDisplay.textContent = '✗ ' + file.name + ' (' + fileSizeMB + 'MB) - File size exceeds 5MB limit';
+                } else {
+                    // File is within 5MB limit - show in GREEN
+                    fileNameDisplay.className = 'mt-2 text-sm text-green-600 font-500';
+                    fileNameDisplay.textContent = '✓ ' + file.name + ' (' + fileSizeMB + 'MB) uploaded';
+                }
+            }
+        });
+
         // Display user answer
         document.getElementById("userAnswer").innerHTML = "<b>You:</b> " + data.transcript;
         document.getElementById("answerSection").classList.remove("hidden");

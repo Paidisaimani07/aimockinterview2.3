@@ -2,6 +2,12 @@ import json
 import re
 
 from services.llm_service import call_llm
+from prompt import (
+    IS_RESUME_PROMPT,
+    EXTRACT_CANDIDATE_NAME_PROMPT,
+    EXTRACT_RESUME_ENTITIES_PROMPT,
+    MATCH_SCORE_PROMPT
+)
 
 
 def is_resume(text: str) -> bool:
@@ -32,27 +38,7 @@ def is_resume(text: str) -> bool:
     
     # Use LLM for resume validation
     snippet = t[:3000]
-    prompt = (
-        "You are an expert document classifier. Determine if the following text is a RESUME/CV.\n\n"
-        "Resume characteristics:\n"
-        "- Contains sections like Skills, Experience, Education, Projects, Certifications\n"
-        "- Includes contact information (email, phone, LinkedIn)\n"
-        "- Describes work experience, education background, technical skills\n"
-        "- Written in first person perspective\n"
-        "- Professional format with clear sections\n"
-        "- Lists job responsibilities, achievements, qualifications\n"
-        "- Typically 1-3 pages long\n\n"
-        "Non-resume documents might be:\n"
-        "- Government documents (lists, schedules, notifications)\n"
-        "- Job descriptions (usually written in third person, lists requirements)\n"
-        "- Official letters or memos\n"
-        "- Academic papers (abstracts, citations, references)\n"
-        "- News articles (journalistic style, bylines)\n"
-        "- Administrative documents (lists, schedules, circulars)\n\n"
-        "IMPORTANT: Be very strict. If the document looks like a government list, official notification, or any non-resume document, return NO.\n\n"
-        f"TEXT TO ANALYZE:\n{snippet}\n\n"
-        "Answer with exactly YES if it's clearly a resume, or NO if it's not a resume."
-    )
+    prompt = safe_format_prompt(IS_RESUME_PROMPT, snippet=snippet)
     
     try:
         from services.llm_service import call_llm
@@ -126,18 +112,7 @@ def extract_candidate_name(resume_text: str) -> str:
     
     # Use LLM for name extraction
     snippet = t[:4000]
-    prompt = (
-        "You are an expert resume parser. Extract the candidate's full name from this resume.\n\n"
-        "Guidelines:\n"
-        "- Look for the person's actual name (like 'John Smith', 'Jane Doe', 'ASIFA Khan')\n"
-        "- Names are typically at the top of the resume and may be in ALL CAPS\n"
-        "- Do NOT extract job titles, company names, or section headers\n"
-        "- Return only the person's name, nothing else\n"
-        "- If you cannot find a clear name, return 'Unknown'\n\n"
-        "RESUME TEXT:\n"
-        f"{snippet}\n\n"
-        "Return ONLY the name string (no quotes, no additional text)."
-    )
+    prompt = safe_format_prompt(EXTRACT_CANDIDATE_NAME_PROMPT, snippet=snippet)
     
     try:
         from services.llm_service import call_llm
@@ -210,6 +185,14 @@ def _extract_name_with_regex(text: str) -> str:
     return ""
 
 
+def safe_format_prompt(template, **kwargs):
+    """Safely format a prompt template without interpreting JSON structures"""
+    result = template
+    for key, value in kwargs.items():
+        result = result.replace(f'{{{key}}}', str(value))
+    return result
+
+
 def _extract_resume_entities(resume_text: str) -> dict:
     """
     Extract skills, projects, certifications from resume using only LLM.
@@ -221,25 +204,7 @@ def _extract_resume_entities(resume_text: str) -> dict:
     
     # Use LLM for all extraction
     snippet = text[:8000]
-    prompt = (
-        "You are an expert resume parser. Extract the following information from the resume:\n"
-        "- skills: Technical skills, programming languages, tools, frameworks (max 15 items)\n"
-        "- projects: Project names and brief descriptions (max 5 items)\n"
-        "- certifications: Professional certifications, certificates, licenses (max 8 items)\n\n"
-        "Guidelines:\n"
-        "- Extract only relevant, professional items\n"
-        "- Keep items concise and specific\n"
-        "- Avoid generic soft skills unless specifically mentioned as technical\n"
-        "- Include programming languages, frameworks, databases, tools\n"
-        "- For projects, include both name and brief description if available\n\n"
-        "Return ONLY valid JSON with this exact format:\n"
-        "{\n"
-        '  "skills": ["skill1", "skill2", ...],\n'
-        '  "projects": ["project1", "project2", ...],\n'
-        '  "certifications": ["cert1", "cert2", ...]\n'
-        "}\n\n"
-        f"RESUME TEXT:\n{snippet}"
-    )
+    prompt = EXTRACT_RESUME_ENTITIES_PROMPT.replace('{snippet}', snippet)
     
     try:
         from services.llm_service import call_llm
@@ -283,88 +248,115 @@ def extract_resume_entities(resume_text: str) -> dict:
 
 def match_score(jd: str, resume: str, entities: dict | None = None) -> int:
     """
-    Compute match percentage (0-100) using rule-based scoring with LLM skill extraction.
+    Compute match percentage (0-100) using LLM-based analysis.
     """
     print("="*50)
-    print("DEBUG: RULE-BASED MATCHING SYSTEM ACTIVATED")
+    print("DEBUG: LLM-BASED MATCHING SYSTEM ACTIVATED")
     print("="*50)
     
     jd_text = jd or ""
     resume_text = resume or ""
     
-    print(f"DEBUG: Using rule-based JD-Resume matching")
+    print(f"DEBUG: Using LLM for JD-Resume matching")
     print(f"DEBUG: JD text length: {len(jd_text)}")
     print(f"DEBUG: Resume text length: {len(resume_text)}")
 
-    # Extract skills using LLM (this works well)
+    # Extract skills using LLM if not provided
     if not entities:
         entities = extract_resume_entities(resume_text)
     
-    resume_skills = [skill.lower().strip() for skill in entities.get("skills", [])]
-    print(f"DEBUG: Resume skills extracted: {resume_skills}")
+    resume_skills = entities.get("skills", [])
+    resume_projects = entities.get("projects", [])
+    resume_certifications = entities.get("certifications", [])
     
-    # Extract JD skills using simple keyword matching
-    jd_skills = []
-    common_tech_skills = [
+    print(f"DEBUG: Resume skills extracted: {resume_skills}")
+    print(f"DEBUG: Resume projects extracted: {resume_projects}")
+    print(f"DEBUG: Resume certifications extracted: {resume_certifications}")
+    
+    # Use LLM to analyze match and generate score
+    jd_snippet = jd_text[:6000]
+    resume_snippet = resume_text[:6000]
+    
+    prompt = safe_format_prompt(
+        MATCH_SCORE_PROMPT,
+        resume_skills=resume_skills,
+        resume_projects=resume_projects,
+        resume_certifications=resume_certifications,
+        jd_snippet=jd_snippet,
+        resume_snippet=resume_snippet
+    )
+    
+    try:
+        from services.llm_service import call_llm
+        response = call_llm(prompt) or ""
+        print(f"DEBUG: LLM response for matching: {response[:300]}...")
+        
+        # Check for rate limit error
+        if response == "RATE_LIMIT_ERROR":
+            print("DEBUG: Rate limit hit, using fallback scoring")
+            return _fallback_score(jd_text, resume_text, entities)
+        
+        # Extract JSON from response
+        import re
+        json_match = re.search(r'\{.*\}', response, re.DOTALL)
+        if not json_match:
+            print("DEBUG: No JSON found in LLM response, using fallback scoring")
+            return _fallback_score(jd_text, resume_text, entities)
+        
+        try:
+            result = json.loads(json_match.group())
+            score = int(result.get("score", 50))
+            
+            # Ensure score is within bounds
+            score = min(100, max(0, score))
+            
+            print(f"DEBUG: LLM calculated score: {score}%")
+            if "analysis" in result:
+                print(f"DEBUG: Analysis: {result['analysis']}")
+            if "strengths" in result:
+                print(f"DEBUG: Strengths: {result['strengths']}")
+            if "gaps" in result:
+                print(f"DEBUG: Gaps: {result['gaps']}")
+            
+            return score
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"DEBUG: JSON parsing error: {e}")
+            return _fallback_score(jd_text, resume_text, entities)
+            
+    except Exception as e:
+        print(f"DEBUG: LLM matching error: {e}")
+        return _fallback_score(jd_text, resume_text, entities)
+
+
+def _fallback_score(jd: str, resume: str, entities: dict) -> int:
+    """
+    Fallback scoring method when LLM fails.
+    """
+    print("DEBUG: Using fallback scoring method")
+    
+    resume_skills = [skill.lower().strip() for skill in entities.get("skills", [])]
+    
+    # Basic keyword matching for fallback
+    jd_lower = (jd or "").lower()
+    common_skills = [
         "react", "javascript", "html", "css", "typescript", "nodejs", "angular", "vue",
         "python", "java", "c++", "c#", "sql", "mongodb", "postgresql", "mysql",
         "aws", "azure", "docker", "kubernetes", "git", "github", "gitlab",
         "frontend", "backend", "full stack", "ui", "ux", "api", "rest", "graphql"
     ]
     
-    jd_lower = jd_text.lower()
-    for skill in common_tech_skills:
-        if skill in jd_lower:
-            jd_skills.append(skill)
+    matches = sum(1 for skill in common_skills if skill in jd_lower and skill in resume_skills)
+    base_score = min(60, matches * 10)
     
-    print(f"DEBUG: JD skills extracted: {jd_skills}")
+    # Add some bonus points for resume length and structure
+    resume_text = resume or ""
+    length_bonus = min(20, len(resume_text) // 100)
+    structure_bonus = 20 if any(keyword in resume_text.lower() for keyword in ["experience", "projects", "skills"]) else 0
     
-    # Calculate matches
-    direct_matches = 0
-    related_matches = 0
-    
-    for jd_skill in jd_skills:
-        if jd_skill in resume_skills:
-            direct_matches += 1
-            print(f"DEBUG: Direct match found: {jd_skill}")
-        else:
-            # Check for related skills
-            related_map = {
-                "javascript": ["nodejs", "typescript", "react", "angular", "vue"],
-                "react": ["javascript", "typescript", "frontend"],
-                "python": ["django", "flask", "fastapi"],
-                "java": ["spring", "hibernate", "maven"],
-                "sql": ["postgresql", "mysql", "mongodb", "database"],
-                "frontend": ["html", "css", "javascript", "react", "vue", "angular"],
-                "backend": ["nodejs", "python", "java", "sql", "api"],
-                "full stack": ["frontend", "backend", "react", "nodejs", "sql"]
-            }
-            
-            for related_skill in related_map.get(jd_skill, []):
-                if related_skill in resume_skills:
-                    related_matches += 1
-                    print(f"DEBUG: Related match found: {jd_skill} -> {related_skill}")
-                    break
-    
-    # Calculate score using the point system
-    base_score = (direct_matches * 15) + (related_matches * 8)
-    
-    # Experience bonus (check for experience keywords)
-    experience_keywords = ["years", "experience", "worked", "developed", "built", "created"]
-    experience_bonus = min(25, sum(5 for keyword in experience_keywords if keyword in resume_text.lower()))
-    
-    # Project bonus (check for project keywords)
-    project_keywords = ["project", "application", "system", "platform", "website", "app"]
-    project_bonus = min(20, sum(4 for keyword in project_keywords if keyword in resume_text.lower()))
-    
-    final_score = base_score + experience_bonus + project_bonus
+    final_score = base_score + length_bonus + structure_bonus
     final_score = min(100, max(0, final_score))
     
-    print(f"DEBUG: Direct matches: {direct_matches} (×15 = {direct_matches * 15})")
-    print(f"DEBUG: Related matches: {related_matches} (×8 = {related_matches * 8})")
-    print(f"DEBUG: Experience bonus: {experience_bonus}")
-    print(f"DEBUG: Project bonus: {project_bonus}")
-    print(f"DEBUG: Final calculated score: {final_score}%")
-    
+    print(f"DEBUG: Fallback score calculated: {final_score}%")
     return final_score
 

@@ -1,8 +1,93 @@
 import requests
 import base64
 from config import Config
+from prompt import FACE_DETECTION_FALLBACK_PROMPT
+
+def call_grok(prompt):
+    """
+    Fallback function to call Grok API when Groq reaches rate limits
+    """
+    if not Config.GROK_API_KEY:
+        print("DEBUG: Grok API key not configured")
+        return None
+    
+    url = "https://api.x.ai/v1/chat/completions"
+    
+    headers = {
+        "Authorization": f"Bearer {Config.GROK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    
+    # Add randomness to prompt for variety
+    import random
+    random_seed = random.randint(1, 999999)
+    
+    body = {
+        "model": "grok-2-mini",  # Correct Grok model name
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.9,
+        "seed": random_seed,
+        "top_p": 0.95
+    }
+    
+    try:
+        print("DEBUG: Trying Grok as fallback...")
+        response = requests.post(url, headers=headers, json=body, timeout=60)
+        
+        if not response.ok:
+            try:
+                err_data = response.json()
+                err = err_data.get("error", {}) if isinstance(err_data, dict) else {}
+                err_msg = err.get("message", str(err_data)) if isinstance(err, dict) else str(err_data)
+                print("DEBUG: Grok error:", response.status_code, err_msg)
+            except:
+                print("DEBUG: Grok error:", response.status_code, response.text[:200])
+            return None
+            
+        try:
+            data = response.json()
+        except:
+            print("DEBUG: Grok non-JSON response:", response.text[:200])
+            return None
+            
+        choices = data.get("choices")
+        if not choices:
+            print("DEBUG: Grok response missing choices:", data)
+            return None
+            
+        msg = choices[0].get("message", {})
+        content = msg.get("content")
+        print("DEBUG: Grok fallback successful!")
+        return content
+        
+    except Exception as e:
+        print("DEBUG: Grok request error:", e)
+        return None
 
 def call_llm(prompt):
+    """
+    Main LLM function with Groq primary and Grok fallback
+    """
+    # Try Groq first
+    groq_result = call_groq_llm(prompt)
+    
+    # If Groq hits rate limit, try Grok
+    if groq_result == "RATE_LIMIT_ERROR":
+        print("DEBUG: Groq rate limit hit, switching to Grok...")
+        grok_result = call_grok(prompt)
+        
+        if grok_result:
+            return grok_result
+        else:
+            print("DEBUG: Both Groq and Grok failed")
+            return "RATE_LIMIT_ERROR"
+    
+    return groq_result
+
+def call_groq_llm(prompt):
+    """
+    Original Groq LLM function (renamed)
+    """
     url = "https://api.groq.com/openai/v1/chat/completions"
 
     headers = {
@@ -15,7 +100,9 @@ def call_llm(prompt):
     random_seed = random.randint(1, 999999)
     
     body = {
-        "model": "llama-3.3-70b-versatile",
+       "model": "llama-3.3-70b-versatile",
+        # "model": "groq/compound-mini",
+        
         "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.9,  # Increased for more randomness
         "seed": random_seed,  # Add random seed for variety
@@ -42,7 +129,10 @@ def call_llm(prompt):
         
         # Check for rate limit specifically
         if response.status_code == 429:
-            print("RATE LIMIT REACHED - Please try again later or upgrade plan")
+            print("RATE LIMIT REACHED - Switching to Grok fallback")
+            print("Visit: https://console.groq.com/settings/billing to upgrade")
+            # Return a helpful message when rate limited
+            return "RATE_LIMIT_ERROR"
         return None
 
     choices = data.get("choices")
@@ -53,7 +143,6 @@ def call_llm(prompt):
     msg = choices[0].get("message") or {}
     return msg.get("content")
 
-
 def call_llm_with_image(prompt, image_base64):
     """
     Call LLM with image analysis capability for face detection.
@@ -63,17 +152,9 @@ def call_llm_with_image(prompt, image_base64):
     
     # Since Groq doesn't support vision models, we'll return a conservative default
     # In a real implementation, you'd use a vision-capable model like GPT-4V or Claude
-    fallback_prompt = f"""
-    {prompt}
-
-    Since I cannot see the image, I'll provide a conservative estimate.
-    For face detection in a typical video interview scenario:
-    - Usually 1 person (the candidate)
-    - Occasionally 0 if person stepped away
-    - Rarely more than 1 in a proper interview setting
-
-    Given the context of an AI mock interview system, I'll return 1 as the most likely count.
-    """
+    fallback_prompt = FACE_DETECTION_FALLBACK_PROMPT.format(
+        prompt=prompt
+    )
     
     try:
         # Try to get a text-based assessment

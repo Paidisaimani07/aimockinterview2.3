@@ -1,4 +1,11 @@
 from services.llm_service import call_llm
+from prompt import (
+    GENERATE_FIRST_QUESTION_PROMPT,
+    GENERATE_FIRST_QUESTION_JSON_PROMPT,
+    GENERATE_NEXT_QUESTION_JSON_PROMPT,
+    GENERATE_NEXT_QUESTION_PROMPT,
+    EXPERT_INTERVIEWER_SYSTEM_MESSAGE
+)
 
 
 # -----------------------------------
@@ -6,21 +13,9 @@ from services.llm_service import call_llm
 # -----------------------------------
 
 def generate_first_question(name, jd, resume):
-    prompt = f"""
-You are a professional technical interviewer.
-
-Start the interview.
-
-Candidate Name: {name}
-
-Instructions:
-- Welcome the candidate warmly
-- Briefly introduce yourself
-- Ask the candidate to introduce themselves and their background
-- Keep it natural and human-like
-
-Return only the question/message.
-"""
+    prompt = GENERATE_FIRST_QUESTION_PROMPT.format(
+        name=name
+    )
 
     return call_llm(prompt)
 
@@ -67,50 +62,19 @@ def generate_first_question_json(name: str, technology: str, difficulty: str = "
         "Include a problem-solving element"
     ])
     
-    prompt = f"""
-SYSTEM REQUIREMENTS FOR AI MOCK INTERVIEW PLATFORM
-
-QUESTION GENERATION (STRICT JSON ONLY)
-Return JSON only:
-{{
-  "question": "Generated interview question including greeting and acknowledgement",
-  "technology": "{technology}",
-  "difficulty": "{difficulty}"
-}}
-
-CRITICAL RULES (DO NOT CHANGE):
-- Address candidate by name: {safe_name}
-- For first question: warm greeting + brief introduction + ONE technical question
-- Question must match EXACT technology: {technology}
-- Difficulty must match EXACT level: {difficulty}
-- Ask exactly ONE clear, specific question
-- Avoid generic "go deeper into" or "tell me about" questions
-- Make questions practical and scenario-based when possible
-- NO markdown formatting, no extra keys, no explanations
-- **IMPORTANT**: Generate a UNIQUE question each time - do not repeat the same question
-- **NEW**: Focus on this context: {random_context}
-- **NEW**: Ask about SPECIFIC technical concepts, not general topics
-
-TECHNOLOGY FOCUS: {technology}
-DIFFICULTY LEVEL: {difficulty}
-- EASY: Basic concepts, definitions, "What is..." questions, simple scenarios
-- MODERATE: Practical usage, "How would you..." questions, implementation scenarios  
-- HARD: Deep concepts, system design, "Why..." questions, architectural decisions
-
-EXAMPLES BY DIFFICULTY:
-EASY: "Hello {safe_name}, what is [specific concept] in {technology} and when would you use it?"
-MODERATE: "Hello {safe_name}, how would you implement [specific feature] using {technology}?"
-HARD: "Hello {safe_name}, why would you choose [specific approach] over [alternative] in {technology}?"
-
-IMPORTANT FOR {technology}:
-- Ask about concrete technical concepts
-- Use specific terminology related to {technology}
-- Avoid generic "programming" or "technical concepts" language
-- Focus on practical, real-world scenarios
-
-Return JSON only.
-"""
+    prompt = GENERATE_FIRST_QUESTION_JSON_PROMPT.format(
+        safe_name=safe_name,
+        technology=technology,
+        difficulty=difficulty,
+        random_context=random_context
+    )
     content = call_llm(prompt)
+    
+    # Check for rate limit error
+    if content == "RATE_LIMIT_ERROR":
+        print("DEBUG: Rate limit hit for first question, using fallback")
+        return _get_fallback_first_question(name, technology, difficulty)
+    
     data = _extract_json_object(content)
     if data.get("question"):
         return {
@@ -151,98 +115,23 @@ def generate_next_question_json(
     # Get available technologies from session (simulate this for now)
     available_technologies = ["Java", "Object-Oriented Programming", "Data Structures", "Algorithms", "Software Development"]
     
-    prompt = f"""
-You are an expert AI technical interviewer with adaptive questioning capabilities.
-
-----------------------------------------
-CONTEXT
-----------------------------------------
-
-PREVIOUS QUESTION:
-{previous_question}
-
-CANDIDATE ANSWER:
-{previous_answer}
-
-CURRENT TECHNOLOGY: {technology}
-CURRENT DIFFICULTY: {difficulty}
-
-----------------------------------------
-AVAILABLE TECHNOLOGIES:
-{', '.join(available_technologies)}
-----------------------------------------
-
-QUESTIONS TO AVOID (DO NOT REPEAT):
-{asked_questions_text}
-
-----------------------------------------
-RULES
-----------------------------------------
-
-1. PERFORMANCE-BASED ADAPTATION
-
-- If Score < 3:
-    • Switch to a DIFFERENT technology
-    • Ask an EASY question
-    • **CRITICAL**: If this is the 3rd consecutive score < 3 → END INTERVIEW
-
-- If Score between 3 and 4:
-    • Continue SAME technology
-    • Ask EASY or MODERATE question
-    • If already 2 questions asked in same tech → SWITCH
-
-- If Score > 4:
-    • Increase difficulty
-    • Ask HARD question
-
-2. INTERVIEW ENDING CONDITIONS
-
-- **END INTERVIEW** if 3 consecutive scores < 3
-- **END INTERVIEW** if candidate consistently struggles across technologies
-- **END INTERVIEW** if assessment shows fundamental gaps
-
-3. TECHNOLOGY RULE
-
-- Do NOT ask more than 2 consecutive questions in same technology
-- Rotate across available technologies
-
-----------------------------------------
-
-4. LOOP PREVENTION
-
-- Do NOT repeat questions
-- Do NOT ask similar variations
-- Always ask a new concept
-
-----------------------------------------
-
-TASK:
-Generate the next interview question following the adaptive rules above.
-
-**IMPORTANT**: If this should be the 3rd consecutive low score, instead of a question, return:
-{{
-  "end_interview": true,
-  "reason": "Interview ended due to 3 consecutive scores below 3.0"
-}}
-
-Otherwise, return:
-{{
-  "question": "Generated interview question including acknowledgement of previous answer",
-  "technology": "Selected technology based on rules",
-  "difficulty": "Selected difficulty based on rules"
-}}
-
-CRITICAL REQUIREMENTS:
-- Address candidate by name: {safe_name}
-- Follow the adaptive rules strictly
-- Ask about SPECIFIC technical concepts in the chosen technology
-- NO markdown formatting, no extra keys
-- **NEW**: Use {random_approach} as inspiration
-- **NEW**: Ask about concrete technical concepts, not general topics
-
-Return JSON only.
-"""
+    prompt = GENERATE_NEXT_QUESTION_JSON_PROMPT.format(
+        previous_question=previous_question,
+        previous_answer=previous_answer,
+        technology=technology,
+        difficulty=difficulty,
+        available_technologies_list=', '.join(available_technologies),
+        asked_questions_text=asked_questions_text,
+        safe_name=safe_name,
+        random_approach=random_approach
+    )
     content = call_llm(prompt)
+    
+    # Check for rate limit error
+    if content == "RATE_LIMIT_ERROR":
+        print("DEBUG: Rate limit hit for next question, using fallback")
+        return _get_fallback_next_question(technology, difficulty, previous_question, previous_answer)
+    
     data = _extract_json_object(content)
     
     # Check if LLM decided to end the interview
@@ -270,83 +159,91 @@ Return JSON only.
 # -----------------------------------
 
 def generate_next_question(previous_q, answer, score, skills, name):
-    prompt = f"""
-You are an expert AI technical interviewer.
-
-Conduct a natural, conversational interview.
-Act like a real engineer speaking to a candidate.
-
-Candidate Name: {name}
-
-----------------------------------------
-AVAILABLE TECHNOLOGIES:
-{skills}
-----------------------------------------
-
-PREVIOUS QUESTION:
-{previous_q}
-
-CANDIDATE ANSWER:
-{answer}
-
-SCORE:
-{score}
-
-----------------------------------------
-RULES
-----------------------------------------
-
-1. PERFORMANCE-BASED ADAPTATION
-
-- If Score < 3:
-    • Switch to a DIFFERENT technology
-    • Ask an EASY question
-
-- If Score between 3 and 4:
-    • Continue SAME technology
-    • Ask EASY or MODERATE question
-    • If already 2 questions asked in same tech → SWITCH
-
-- If Score > 4:
-    • Increase difficulty
-    • Ask HARD question
-
-----------------------------------------
-
-2. TECHNOLOGY RULE
-
-- Do NOT ask more than 2 consecutive questions in same technology
-- Rotate across skills list
-
-----------------------------------------
-
-3. LOOP PREVENTION
-
-- Do NOT repeat questions
-- Do NOT ask similar variations
-- Always ask a new concept
-
-----------------------------------------
-
-4. DIFFICULTY LEVELS
-
-EASY → basic definitions  
-MODERATE → practical usage  
-HARD → deep concepts / system design  
-
-----------------------------------------
-
-5. STYLE
-
-- Appreciate candidate using their name
-- Keep it conversational
-- No robotic tone
-- No long paragraphs
-- Ask ONLY ONE question
-
-----------------------------------------
-
-Return ONLY the next question.
-"""
+    prompt = GENERATE_NEXT_QUESTION_PROMPT.format(
+        name=name,
+        skills=skills,
+        previous_q=previous_q,
+        answer=answer,
+        score=score
+    )
 
     return call_llm(prompt)
+
+
+def _get_fallback_next_question(technology, difficulty, previous_question, previous_answer):
+    """Fallback next question generation when LLM fails"""
+    fallback_questions = {
+        "Java": [
+            "Can you explain the difference between ArrayList and LinkedList in Java?",
+            "What is polymorphism in Java and can you provide an example?",
+            "How does garbage collection work in Java?"
+        ],
+        "Object-Oriented Programming": [
+            "What are the four principles of object-oriented programming?",
+            "Explain encapsulation with a real-world example.",
+            "What is the difference between abstraction and encapsulation?"
+        ],
+        "Data Structures": [
+            "What is the difference between a stack and a queue?",
+            "Explain how a hash map works.",
+            "What is time complexity and why is it important?"
+        ],
+        "Algorithms": [
+            "Can you explain binary search and its time complexity?",
+            "What is the difference between DFS and BFS?",
+            "How would you reverse a linked list?"
+        ],
+        "Software Development": [
+            "What version control systems have you used?",
+            "How do you approach debugging a complex issue?",
+            "What is your experience with agile methodologies?"
+        ]
+    }
+    
+    questions = fallback_questions.get(technology, fallback_questions["Software Development"])
+    import random
+    return {
+        "question": random.choice(questions),
+        "technology": technology,
+        "difficulty": difficulty
+    }
+
+
+def _get_fallback_first_question(name, technology, difficulty):
+    """Fallback first question generation when LLM fails"""
+    fallback_questions = {
+        "Java": [
+            f"Hello, let's start with Java! Can you explain the main features of Java and why it's platform-independent?",
+            f"Welcome! Let's discuss Java. What is the difference between JDK, JRE, and JVM?",
+            f"Hi! Let's begin with Java. Can you explain what object-oriented programming means?"
+        ],
+        "Object-Oriented Programming": [
+            f"Hello, let's talk about OOP! Can you explain the four principles of object-oriented programming?",
+            f"Welcome! Let's discuss object-oriented concepts. What is encapsulation and why is it important?",
+            f"Hi! Let's start with OOP fundamentals. Can you give an example of inheritance in programming?"
+        ],
+        "Data Structures": [
+            f"Hello, let's explore data structures! What is a data structure and why do we need them?",
+            f"Welcome! Let's discuss data structures. Can you explain the difference between an array and a linked list?",
+            f"Hi! Let's start with data structures. What is time complexity and how do we analyze it?"
+        ],
+        "Algorithms": [
+            f"Hello, let's dive into algorithms! What is an algorithm and can you give a simple example?",
+            f"Welcome! Let's discuss algorithms. Can you explain what binary search is and when you'd use it?",
+            f"Hi! Let's start with algorithms. What's the difference between linear and binary search?"
+        ],
+        "Software Development": [
+            f"Hello, let's talk about software development! What programming languages are you comfortable with?",
+            f"Welcome! Let's discuss your development experience. Can you tell me about a project you've worked on?",
+            f"Hi! Let's start with your background. What inspired you to pursue software development?"
+        ]
+    }
+    
+    questions = fallback_questions.get(technology, fallback_questions["Software Development"])
+    import random
+    return {
+        "question": random.choice(questions),
+        "technology": technology,
+        "difficulty": difficulty
+    }
+

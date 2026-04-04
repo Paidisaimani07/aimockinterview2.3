@@ -10,6 +10,7 @@ from utils.camera_monitor import detect_faces
 import subprocess
 from datetime import datetime
 import re
+from prompt import TECHNOLOGY_EXTRACTION_PROMPT
 
 interview_bp = Blueprint("interview", __name__)
 
@@ -327,15 +328,9 @@ def start():
             from services.llm_service import call_llm
             resume_snippet = resume_text[:2000]  # Use first 2000 chars for analysis
             
-            tech_prompt = f"""
-Extract specific technical skills, programming languages, frameworks, and technologies from this resume:
-
-RESUME TEXT:
-{resume_snippet}
-
-Return ONLY a comma-separated list of technical technologies (e.g., Java, Python, React, SQL, AWS, etc.).
-No explanations, just the list.
-"""
+            tech_prompt = TECHNOLOGY_EXTRACTION_PROMPT.format(
+                resume_snippet=resume_snippet
+            )
             
             tech_response = call_llm(tech_prompt)
             if tech_response and tech_response.strip():

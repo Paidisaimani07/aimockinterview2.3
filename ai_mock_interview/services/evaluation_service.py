@@ -2,6 +2,13 @@ import requests
 import re
 import json
 from config import Config
+from prompt import (
+    ANSWER_FEEDBACK_PROMPT,
+    EVALUATE_ANSWER_PROMPT,
+    FALLBACK_EVALUATION_PROMPT,
+    GENERATE_FEEDBACK_PROMPT,
+    EXPERT_INTERVIEW_EVALUATOR_SYSTEM_MESSAGE
+)
 
 # -------------------------------
 # LLM CALL (Reusable)
@@ -17,8 +24,9 @@ def call_llm(prompt, temperature=0):
 
     body = {
         "model": "llama-3.3-70b-versatile",
+        # "model": "groq/compound-mini",
         "messages": [
-            {"role": "system", "content": "You are an expert technical interviewer."},
+            {"role": "system", "content": EXPERT_INTERVIEW_EVALUATOR_SYSTEM_MESSAGE},
             {"role": "user", "content": prompt}
         ],
         "temperature": temperature
@@ -37,20 +45,11 @@ def call_llm(prompt, temperature=0):
 # -------------------------------
 def generate_answer_feedback(question, answer, score):
     """Generate specific feedback for a single answer"""
-    prompt = f"""
-    You are an expert interview coach providing feedback on a candidate's answer.
-    
-    Question: {question}
-    Answer: {answer}
-    Score: {score.get('total_score', 0)}/5
-    
-    Provide concise, constructive feedback in 2-3 sentences. Focus on:
-    - What was done well
-    - What could be improved
-    - Specific suggestions for better answers
-    
-    Keep it encouraging and professional.
-    """
+    prompt = ANSWER_FEEDBACK_PROMPT.format(
+        question=question,
+        answer=answer,
+        score=score.get('total_score', 0)
+    )
     
     try:
         content = call_llm(prompt, temperature=0.7)
@@ -76,61 +75,10 @@ def generate_answer_feedback(question, answer, score):
 # -------------------------------
 
 def evaluate_answer(question, answer):
-    prompt = f"""
-You are an expert interview evaluator evaluating technical interview answers. Your job is to be FAIR and OBJECTIVE.
-
-Question: {question}
-Answer: {answer}
-
-Evaluate the answer on a 0-5 scale for each criteria:
-
-**1. Relevance (0-5):**
-- Does the answer address the question asked?
-- Does it contain relevant technical information?
-- Is it on-topic?
-
-**2. Technical Accuracy (0-5):**
-- Is the technical information correct?
-- Are the concepts explained properly?
-- Are there factual errors?
-
-**3. Understanding (0-5):**
-- Does the candidate understand the concept?
-- Can they explain it in their own words?
-- Do they show comprehension?
-
-**4. Communication (0-5):**
-- Is the answer clear and coherent?
-- Is it well-structured?
-- Is the communication effective?
-
-**SCORING GUIDELINES:**
-- Give credit for correct technical information
-- Don't penalize for minor imperfections
-- Recognize good explanations even if not perfect
-- Be generous with partial understanding
-- Focus on what the candidate DOES know, not what they miss
-
-**EXAMPLES FOR FAIR SCORING:**
-- Good Java answer about OOP concepts: Relevance 4-5, Technical 3-5, Understanding 3-5, Communication 3-5
-- Partially correct answer: Relevance 3-4, Technical 2-4, Understanding 2-4, Communication 2-4
-- Basic but correct answer: Relevance 3-4, Technical 2-3, Understanding 2-3, Communication 2-3
-- "I don't know": All scores 0
-
-**IMPORTANT:**
-- If the answer contains correct technical information about the topic, relevance should be at least 3
-- If the answer shows understanding of the concept, understanding should be at least 3
-- Only give 0 if the answer is completely unrelated or is "I don't know"
-
-Return ONLY JSON format:
-{{
-"relevance": [0-5],
-"technical": [0-5],
-"understanding": [0-5],
-"communication": [0-5],
-"total_score": [0-5]
-}}
-"""
+    prompt = EVALUATE_ANSWER_PROMPT.format(
+        question=question,
+        answer=answer
+    )
 
     content = call_llm(prompt)
 
@@ -179,27 +127,10 @@ def llm_fallback_evaluation(question, answer):
     """
     # Try a different LLM service or simpler prompt
     try:
-        fallback_prompt = f"""
-Quick evaluation of technical answer:
-
-Question: {question}
-Answer: {answer}
-
-Give fair scores (0-5) for:
-- Relevance: Does it answer the question?
-- Technical: Is the information correct?
-- Understanding: Does the candidate get it?
-- Communication: Is it clear?
-
-Be generous with good technical answers. Return JSON only:
-{{
-"relevance": [0-5],
-"technical": [0-5],
-"understanding": [0-5],
-"communication": [0-5],
-"total_score": [0-5]
-}}
-"""
+        fallback_prompt = FALLBACK_EVALUATION_PROMPT.format(
+            question=question,
+            answer=answer
+        )
         content = call_llm(fallback_prompt)
         
         if content:
@@ -269,48 +200,11 @@ Score: {score}/5
 Relevance: {relevance}/5, Clarity: {clarity}/5, Confidence: {confidence}/5
 """
 
-    prompt = f"""
-You are an expert technical interviewer providing detailed feedback to a candidate.
-
-Analyze the interview below and provide comprehensive feedback in the specified JSON format.
-
-Average Score: {average_score}/5 ({(average_score/5)*100:.1f}%)
-
-Interview Conversation:
-{qa_text}
-
-Provide detailed analysis covering:
-1. Technical knowledge demonstrated
-2. Communication skills (clarity, confidence)
-3. Answer relevance and quality
-4. Overall performance assessment
-
-Return ONLY JSON format:
-{{
-"overall_feedback": "Detailed paragraph summarizing candidate's performance",
-"strengths": [
-    "Specific strength 1 with example",
-    "Specific strength 2 with example"
-],
-"weaknesses": [
-    "Specific weakness 1 with example", 
-    "Specific weakness 2 with example"
-],
-"where_to_improve": [
-    "Actionable improvement suggestion 1",
-    "Actionable improvement suggestion 2",
-    "Actionable improvement suggestion 3"
-],
-"suggestions": [
-    "Specific learning recommendation 1",
-    "Specific learning recommendation 2",
-    "Career development suggestion 3"
-],
-"final_recommendation": "Strong Hire / Hire / Needs Improvement / Not Ready"
-}}
-
-Be specific and constructive in your feedback. Use examples from the interview where relevant.
-"""
+    prompt = GENERATE_FEEDBACK_PROMPT.format(
+        average_score=average_score,
+        average_percentage=(average_score/5)*100,
+        qa_text=qa_text
+    )
 
     content = call_llm(prompt, temperature=0.3)
 

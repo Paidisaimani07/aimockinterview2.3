@@ -56,6 +56,15 @@
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(249, 115, 22, 0.3);
         }
+        .btn{
+            color: white;
+            padding: 12px 28px;
+            border-radius: 10px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
 
         .btn-primary:hover {
             transform: translateY(-2px);
@@ -455,20 +464,26 @@
                         <h3><i class="fas fa-laptop mr-2"></i>Technical Requirements</h3>
                         <ul>
                             <li>Stable internet connection (minimum 2 Mbps recommended)</li>
-                            <li>Modern browser (Chrome, Firefox, Safari, or Edge)</li>
+                            <li>Modern browser (Chrome)</li>
                             <li>Working microphone and camera</li>
                         </ul>
                     </div>
                 </div>
 
-                <div class="bg-blue-50 border-2 border-blue-200 rounded-12 p-4 mb-8">
-                    <p class="text-blue-900 text-sm">
-                        <i class="fas fa-info-circle mr-2 text-blue-600"></i>
-                        <strong>Note:</strong> By proceeding, you acknowledge that you have read and understood all guidelines above.
-                    </p>
+                <div class="bg-blue-50 border-2 border-blue-200 rounded-12 p-4 mb-6">
+                    <div class="flex items-start space-x-3">
+                        <input type="checkbox" id="acknowledgeCheckbox" class="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                        <label for="acknowledgeCheckbox" class="text-blue-900 text-sm cursor-pointer">
+                            <i class="fas fa-info-circle mr-2 text-blue-600"></i>
+                            <strong>I acknowledge:</strong> I have read and understood all guidelines above, including that I should say "I don't know" if I don't know the answer to any question.
+                        </label>
+                    </div>
                 </div>
 
                 <div class="flex gap-4 justify-center">
+                    <button onclick="goToDashboard()" class="btn bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300">
+                        <i class="fas fa-arrow-left mr-2"></i> Back to Dashboard
+                    </button>
                     <button onclick="showSetup()" class="btn-primary">
                         <i class="fas fa-arrow-right mr-2"></i>I Understand - Continue
                     </button>
@@ -492,14 +507,14 @@
                 <div class="space-y-6">
                     <div>
                         <label class="block text-sm font-600 text-gray-900 mb-2">
-                            <i class="fas fa-user mr-2 text-orange-600"></i>Full Name
+                            <i class="fas fa-user mr-2 text-orange-600"></i>Full Name <span class="text-red-500">*</span>
                         </label>
-                        <input type="text" id="name" class="input-modern" placeholder="Enter your full name">
+                        <input type="text" id="name" class="input-modern" placeholder="Enter your full name" required>
                     </div>
 
                     <div>
                         <label class="block text-sm font-600 text-gray-900 mb-2">
-                            <i class="fas fa-file-alt mr-2 text-orange-600"></i>Job Description
+                            <i class="fas fa-file-alt mr-2 text-orange-600"></i>Job Description <span class="text-red-500">*</span>
                         </label>
                         <textarea id="jd" rows="5" class="input-modern resize-none" placeholder="Paste the complete job description here..."></textarea>
                         <p class="text-xs text-gray-500 mt-1">This helps tailor interview questions to the role</p>
@@ -507,7 +522,7 @@
 
                     <div>
                         <label class="block text-sm font-600 text-gray-900 mb-2">
-                            <i class="fas fa-file-pdf mr-2 text-orange-600"></i>Resume Upload
+                            <i class="fas fa-file-pdf mr-2 text-orange-600"></i>Resume Upload <span class="text-red-500">*</span>
                         </label>
                         <div class="border-2 border-dashed border-gray-300 rounded-12 p-6 text-center cursor-pointer hover:border-orange-600 transition-colors" onclick="document.getElementById('resumeFile').click();">
                             <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
@@ -546,9 +561,14 @@
                         </p>
                     </div>
 
-                    <button onclick="startInterview()" class="btn-primary w-full py-3 text-base" id="startBtn" disabled style="opacity: 0.6; cursor: not-allowed;">
-                        <i class="fas fa-play mr-2"></i>Start Interview
-                    </button>
+                    <div class="flex gap-4 justify-center">
+                        <button onclick="goToInstructions()" class="btn bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300">
+                            <i class="fas fa-arrow-left mr-2"></i> Back
+                        </button>
+                        <button onclick="startInterview()" class="btn-primary py-3 text-base" id="startBtn" disabled style="opacity: 0.6; cursor: not-allowed;">
+                            <i class="fas fa-play mr-2"></i>Start Interview
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -694,7 +714,27 @@
     <script src="{{ url_for('static', filename='js/monitor.js') }}"></script>
     
     <script>
+        // Checkbox validation for instructions page
+        document.getElementById('acknowledgeCheckbox').addEventListener('change', function() {
+            const continueBtn = document.getElementById('continueBtn');
+            continueBtn.disabled = !this.checked;
+            if (this.checked) {
+                continueBtn.style.opacity = '1';
+                continueBtn.style.cursor = 'pointer';
+            } else {
+                continueBtn.style.opacity = '0.6';
+                continueBtn.style.cursor = 'not-allowed';
+            }
+        });
+
         function showSetup() {
+            // Check if checkbox is checked before allowing to proceed
+            const checkbox = document.getElementById('acknowledgeCheckbox');
+            if (!checkbox.checked) {
+                showToast('Please acknowledge the guidelines before proceeding', 'warning', 3000);
+                return;
+            }
+            
             document.getElementById('instructions').style.display = 'none';
             document.getElementById('setup').style.display = 'block';
         }
@@ -831,6 +871,16 @@
 
         // Export for use in other scripts
         window.showToast = showToast;
+        // Export for use in other scripts
+        window.showToast = showToast;
+        function goToDashboard() {
+            window.location.href = "http://localhost:3000/applicanthome";
+        }
+
+        function goToInstructions() {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('instructions').style.display = 'block';
+        }
     </script>
 </body>
 </html>

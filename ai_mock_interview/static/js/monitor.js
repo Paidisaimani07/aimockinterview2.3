@@ -196,9 +196,15 @@ function initCameraMonitoring() {
         });
 }
 
+// Store termination flag to prevent multiple alerts
+let isTerminated = false;
+
 // Start the continuous camera monitoring
 function startCameraMonitoring() {
     cameraMonitoringInterval = setInterval(() => {
+        // Skip processing if already terminated
+        if (isTerminated) return;
+        
         // Face detection requires a ready stream.
         if (!video.videoWidth || !video.videoHeight) return;
 
@@ -215,7 +221,8 @@ function startCameraMonitoring() {
         })
             .then(res => res.json())
             .then(data => {
-                if (data.terminate) {
+                if (data.terminate && !isTerminated) {
+                    isTerminated = true; // Set flag to prevent multiple alerts
                     alert("Interview terminated: " + data.reason);
                     // Redirect to result page instead of reloading
                     window.location.href = '/result';
@@ -254,7 +261,7 @@ function startCameraMonitoring() {
                     }
                 }
             });
-    }, 3000);
+    }, 500);
 }
 
 // Stop camera monitoring when interview ends
@@ -276,4 +283,4 @@ let interviewStarted = false;
 function enableTabMonitoring() {
     interviewStarted = true;
     addLipSyncChart(); // Show lip sync chart when interview starts
-}
+}
