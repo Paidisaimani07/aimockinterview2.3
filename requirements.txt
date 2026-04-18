@@ -7,7 +7,7 @@ requests==2.31.0
 
 # Speech Recognition
 SpeechRecognition==3.10.0
-pyaudio==0.2.14
+# pyaudio==0.2.14
 
 # Audio Processing
 numpy==1.26.2
