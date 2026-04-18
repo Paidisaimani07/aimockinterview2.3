@@ -1,6 +1,6 @@
 from flask import Flask, render_template  # pyright: ignore[reportMissingImports]
 from routes.interview_routes import interview_bp
-from ai_mock_interview.app import app
+#from ai_mock_interview.app import app
 app = Flask(__name__)
 app.register_blueprint(interview_bp)
 
@@ -13,8 +13,4 @@ def result():
     return render_template("result.html")
 
 if __name__ == "__main__":
-    # Port 5000 may be occupied by macOS services (e.g., AirTunes).
-    # Use PORT env var to override when needed.
-    import os
-port = int(os.getenv("PORT", "5001"))
-app.run(debug=True, host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=5000)
