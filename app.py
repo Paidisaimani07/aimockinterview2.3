@@ -1,0 +1,1 @@
+from ai_mock_interview.app import app
